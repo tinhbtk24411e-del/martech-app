@@ -309,8 +309,21 @@ $('#leadForm').addEventListener('submit', async (event) => {
   payload.consent_to_contact = form.elements.consent_to_contact.checked;
   payload.interests = values('#leadInterests');
 
+  const email = String(payload.email || '').trim();
+  const phone = String(payload.phone || '').trim();
+  const contact = String(payload.contact || '').trim();
+  payload.email = email;
+  payload.phone = phone;
+  payload.zalo_phone = String(payload.zalo_phone || '').trim();
+  payload.contact = contact || phone || email || '';
+
   const utm = getCurrentUtm();
   Object.assign(payload, utm);
+  payload.source = payload.source || utm.utm_source || 'website';
+  payload.lead_score = Number(payload.lead_score || 0);
+  payload.lead_level = payload.lead_level || 'NEW';
+  payload.voucher_status = payload.voucher_status || 'PENDING';
+  payload.voucher_channel = payload.voucher_channel || 'email';
 
   const submitButton = form.querySelector('button');
   submitButton.disabled = true;

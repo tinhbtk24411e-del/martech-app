@@ -46,19 +46,28 @@ export default async function handler(req, res) {
   }
 
   const name = clean(b.name, 120);
-  const contact = clean(b.contact, 160);
+  const explicitEmail = clean(b.email || '', 160);
+  const explicitPhone = clean(b.phone || '', 40);
+  const explicitZalo = clean(b.zalo_phone || '', 40);
+  const contact = clean(b.contact || explicitPhone || explicitEmail || '', 160);
   const destination = clean(b.destination, 100);
   const duration = number(b.duration, 1, 60);
   const budget = number(b.budget, 0, 1_000_000_000);
   const partySize = number(b.party_size, 1, 30);
   const consent = b.consent_to_contact === true || b.consent_to_contact === 'true';
   const utm = normalizeUtm(b);
+  const leadScore = Number.isFinite(Number(b.lead_score)) ? Number(b.lead_score) : 0;
+  const leadLevel = clean(b.lead_level || 'NEW', 30) || 'NEW';
+  const voucherCode = clean(b.voucher_code || '', 80);
+  const voucherStatus = clean(b.voucher_status || 'PENDING', 30) || 'PENDING';
+  const voucherChannel = clean(b.voucher_channel || 'email', 30) || 'email';
+  const source = clean(b.source || b.lead_source || utm.utm_source || 'website', 60) || 'website';
 
-  if (!name || !contact || !destination || !duration || budget === null || !partySize || !consent) {
+  if (!name || (!contact && !explicitPhone && !explicitEmail) || !destination || !duration || budget === null || !partySize || !consent) {
     return send(res, 400, { error: 'Vui lòng điền đủ thông tin hợp lệ và đồng ý để chúng tôi liên hệ.' });
   }
 
-  if (contact.length < 6) {
+  if (contact.length < 6 && !explicitEmail && !explicitPhone) {
     return send(res, 400, { error: 'Thông tin liên hệ chưa hợp lệ.' });
   }
 
@@ -89,6 +98,9 @@ export default async function handler(req, res) {
       request_id: requestId,
       name,
       contact,
+      email: explicitEmail || null,
+      phone: explicitPhone || null,
+      zalo_phone: explicitZalo || null,
       destination,
       duration,
       budget,
@@ -97,11 +109,17 @@ export default async function handler(req, res) {
       interests: list(b.interests),
       selected_tour_id: selected?.id || null,
       selected_tour_name: selected?.name || null,
-      lead_source: utm.utm_source ? 'utm' : 'website',
-      consent_to_contact: true,
+      lead_source: source,
       lead_status: selected ? 'HIGH_PRIORITY' : 'STANDARD',
       notification_status: 'PENDING',
       note: clean(b.note, 1000) || null,
+      consent_to_contact: true,
+      source,
+      lead_score: Math.max(0, Math.min(100, leadScore)),
+      lead_level: leadLevel,
+      voucher_code: voucherCode || null,
+      voucher_status: voucherStatus,
+      voucher_channel: voucherChannel,
       utm_source: utm.utm_source || 'direct',
       utm_medium: utm.utm_medium || null,
       utm_campaign: utm.utm_campaign || null,
@@ -145,6 +163,9 @@ export default async function handler(req, res) {
             lead_id: lead.lead_id,
             name,
             contact,
+            email: explicitEmail || null,
+            phone: explicitPhone || null,
+            zalo_phone: explicitZalo || null,
             destination,
             duration,
             budget,
@@ -155,6 +176,12 @@ export default async function handler(req, res) {
             selected_tour_name: row.selected_tour_name,
             consent_to_contact: true,
             lead_source: row.lead_source,
+            source: row.source,
+            lead_score: row.lead_score,
+            lead_level: row.lead_level,
+            voucher_code: row.voucher_code,
+            voucher_status: row.voucher_status,
+            voucher_channel: row.voucher_channel,
             utm_source: row.utm_source,
             utm_medium: row.utm_medium,
             utm_campaign: row.utm_campaign,
