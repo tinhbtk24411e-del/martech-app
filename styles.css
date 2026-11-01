@@ -247,7 +247,6 @@ nav a:hover,
   margin-bottom: 28px;
 }
 .section-heading h2,
-.planner h2,
 .about h2 {
   font-size: clamp(2rem, 4vw, 3.1rem);
 }
@@ -412,82 +411,12 @@ input:focus, select:focus, textarea:focus, button:focus, a:focus {
   text-align: center;
 }
 
-.planner {
-  position: relative;
-  display: grid;
-  grid-template-columns: 0.8fr 1.2fr;
-  gap: 64px;
-  background: linear-gradient(120deg, #e2f1ee, #edf6f4 55%, #e9eff7);
-  overflow: hidden;
-}
-.planner:before {
-  content: "";
-  position: absolute;
-  top: -210px;
-  left: -230px;
-  width: 420px;
-  height: 420px;
-  border-radius: 50%;
-  background: rgba(117, 194, 181, 0.2);
-}
-.planner > * { position: relative; z-index: 1; }
-.ai-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 18px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.72);
-  color: var(--primary);
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.12rem;
-  text-transform: uppercase;
-}
-.planner-intro > p:not(.eyebrow) {
-  max-width: 420px;
-  color: var(--muted);
-}
-.planner-note {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  margin-top: 25px;
-  padding: 14px 16px;
-  background: rgba(255,255,255,0.84);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  font-size: 0.8rem;
-}
-.planner-note span { color: var(--primary); font-weight: 800; }
-
-.plan-form,
 .lead-form {
   padding: 28px 22px 24px;
   background: var(--white);
   border-radius: 20px;
   box-shadow: var(--shadow-lg);
 }
-.form-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-.form-title > span {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--navy);
-  color: var(--white);
-  font-size: 0.68rem;
-  font-weight: 800;
-}
-.form-title strong { display: block; }
-.form-title small { display: block; color: var(--muted); font-size: 0.68rem; }
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -611,7 +540,6 @@ footer > div {
   .hero-search { position: static; margin-top: 30px; }
   .hero { display: block; }
   .tour-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .planner,
   .lead-section { grid-template-columns: 1fr; }
 }
 

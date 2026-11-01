@@ -72,7 +72,7 @@ function duration(item) {
   return match || 0;
 }
 
-function card(item, match = false) {
+function card(item) {
   const element = document.createElement('article');
   element.className = 'tour-card';
 
@@ -90,7 +90,6 @@ function card(item, match = false) {
   copy.innerHTML = `
     <div class="tour-meta">${sanitizeText(item.destination)} · ${sanitizeText(String(item.duration || ''))}</div>
     <h3>${sanitizeText(item.name)}</h3>
-    ${match ? `<p class="tour-meta">${sanitizeText(item.reason || 'Phù hợp với yêu cầu của bạn.')}</p>` : ''}
     <div class="price">${money(item.price_per_person)}<small>/ người</small></div>
     <div>${(item.experience_type || item.highlights || []).slice(0, 3).map((value) => `<span class="tag">${sanitizeText(value)}</span>`).join('')}</div>
   `;
@@ -103,7 +102,7 @@ function card(item, match = false) {
   detail.onclick = () => showDetails(item);
 
   const choose = document.createElement('button');
-  choose.textContent = match ? 'Chọn tour' : 'Tư vấn tour này';
+  choose.textContent = 'Tư vấn tour này';
   choose.onclick = () => selectTour(item);
 
   actions.append(detail, choose);
@@ -163,7 +162,7 @@ function renderTours() {
   grid.replaceChildren(
     ...(filtered.length
       ? filtered.map((tour) => card(tour))
-      : [emptyState('Chưa có hành trình phù hợp với bộ lọc này. Hãy thử một lựa chọn khác hoặc để AI gợi ý riêng cho bạn.')])
+      : [emptyState('Chưa có hành trình phù hợp với bộ lọc này. Hãy thử lựa chọn khác hoặc gửi yêu cầu để được tư vấn.')])
   );
 }
 
@@ -230,79 +229,6 @@ function fieldData(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
 
-$('#plannerForm').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const payload = fieldData(form);
-  payload.interests = values('#interestChips');
-
-  const submitButton = form.querySelector('button');
-  const spinner = submitButton.querySelector('.spinner');
-  const buttonText = submitButton.querySelector('.button-text');
-  submitButton.disabled = true;
-  if (spinner) spinner.hidden = false;
-  if (buttonText) buttonText.textContent = 'AI đang lên kế hoạch…';
-  setMessage(form, '');
-
-  try {
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Có lỗi xảy ra, vui lòng thử lại.');
-
-    renderResult(data);
-    $('#aiResult').hidden = false;
-    $('#aiResult').scrollIntoView({ behavior: 'smooth' });
-  } catch (error) {
-    setMessage(form, error.message || 'Có lỗi xảy ra, vui lòng thử lại.');
-  } finally {
-    submitButton.disabled = false;
-    if (spinner) spinner.hidden = true;
-    if (buttonText) buttonText.textContent = 'Tạo lịch trình bằng AI';
-  }
-});
-
-function renderResult(data) {
-  const itinerary = $('#itinerary');
-  itinerary.replaceChildren(
-    ...(data.itinerary || []).map((day) => {
-      const article = document.createElement('article');
-      article.className = 'day';
-      article.innerHTML = `<p class="eyebrow">${sanitizeText(day.day || '')}</p><h3>${sanitizeText(day.title || '')}</h3>`;
-      const list = document.createElement('ul');
-      (day.activities || []).slice(0, 6).forEach((item) => {
-        const entry = document.createElement('li');
-        entry.textContent = item;
-        list.append(entry);
-      });
-      article.append(list);
-      return article;
-    })
-  );
-
-  if (!itinerary.children.length) itinerary.textContent = 'Chưa có lịch trình chi tiết.';
-
-  const matches = $('#matchedTours');
-  matches.replaceChildren(...(data.matchedTours || []).map((tour) => card(tour, true)));
-  if (!matches.children.length) {
-    matches.innerHTML = '<p class="empty">Chưa có tour cố định phù hợp, liên hệ để báo giá riêng.</p>';
-  }
-
-  const advice = $('#advice');
-  advice.replaceChildren(
-    ...(data.advice || []).map((item) => {
-      const entry = document.createElement('li');
-      entry.textContent = item;
-      return entry;
-    })
-  );
-}
-
-$('#newPlan').onclick = () => $('#planner').scrollIntoView({ behavior: 'smooth' });
-
 $('#leadForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
@@ -365,7 +291,6 @@ $$('nav a').forEach((link) => {
   };
 });
 
-chips('#interestChips');
 chips('#leadInterests');
 getCurrentUtm();
 loadTours();
