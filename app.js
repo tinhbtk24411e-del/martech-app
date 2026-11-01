@@ -1,22 +1,357 @@
-const interests = ['Khám phá','Nghỉ dưỡng','Ẩm thực','Chụp ảnh','Thiên nhiên','Trekking','Gia đình','Văn hóa'];
-let tours = []; const $ = s => document.querySelector(s); const $$ = s => [...document.querySelectorAll(s)];
-const money = v => new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND',maximumFractionDigits:0}).format(Number(v || 0));
-function chips(target) { const el=$(target); interests.forEach(x=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=x;b.onclick=()=>b.classList.toggle('active');el.append(b)}); }
-function values(selector){return $$(selector+' .chip.active').map(x=>x.textContent)}
-function setMessage(form,text,ok=false){const el=form.querySelector('.form-message');el.textContent=text;el.className='form-message '+(ok?'success':'error')}
-function duration(t){const n=Number(String(t.duration||'').match(/\d+/)?.[0]);return n||0}
-function card(t,match=false){const el=document.createElement('article');el.className='tour-card';const img=document.createElement('img');img.loading='lazy';img.alt=t.name||'Tour VietJourney';img.src=t.image||'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=900&q=80';img.onerror=()=>{img.src='https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=900&q=80'};el.append(img);const c=document.createElement('div');c.className='tour-copy';c.innerHTML=`<div class="tour-meta">${escape(t.destination)} · ${escape(String(t.duration||''))}</div><h3>${escape(t.name)}</h3>${match?`<p class="tour-meta">${escape(t.reason||'Phù hợp với yêu cầu của bạn.')}</p>`:''}<div class="price">${money(t.price_per_person)}<small>/ người</small></div><div>${(t.experience_type||t.highlights||[]).slice(0,3).map(x=>`<span class="tag">${escape(x)}</span>`).join('')}</div>`;const acts=document.createElement('div');acts.className='card-actions';const detail=document.createElement('button');detail.textContent='Khám phá tour';detail.onclick=()=>showDetails(t);const choose=document.createElement('button');choose.textContent=match?'Chọn tour':'Tư vấn tour này';choose.onclick=()=>selectTour(t);acts.append(detail,choose);c.append(acts);el.append(c);return el}
-function escape(v){const d=document.createElement('div');d.textContent=String(v??'');return d.innerHTML}
-function emptyState(text){return Object.assign(document.createElement('p'),{className:'empty',textContent:text})}
-function renderSkeleton(){const grid=$('#tourGrid');grid.replaceChildren(...Array.from({length:3},()=>{const s=document.createElement('article');s.className='tour-card skeleton-card';s.innerHTML='<div class="skeleton skeleton-image"></div><div class="tour-copy"><i class="skeleton skeleton-line short"></i><i class="skeleton skeleton-line"></i><i class="skeleton skeleton-line medium"></i><i class="skeleton skeleton-button"></i></div>';return s}))}
-function renderTours(){const dest=$('#destinationFilter').value,type=$('#typeFilter').value,dur=$('#durationFilter').value,bud=$('#budgetFilter').value;const filtered=tours.filter(t=>{const d=duration(t),p=Number(t.price_per_person);return(!dest||t.destination===dest)&&(!type||(t.experience_type||[]).includes(type))&&(!dur||(dur==='short'?d<=3:dur==='medium'?d>=4&&d<=6:d>=7))&&(!bud||(bud==='under5'?p<5e6:bud==='5to10'?p>=5e6&&p<=1e7:p>1e7))});const grid=$('#tourGrid');grid.replaceChildren(...(filtered.length?filtered.map(t=>card(t)):[emptyState('Chưa có hành trình phù hợp với bộ lọc này. Hãy thử một lựa chọn khác hoặc để AI gợi ý riêng cho bạn.')]))}
-function populateFilters(){const ds=[...new Set(tours.map(t=>t.destination).filter(Boolean))],ts=[...new Set(tours.flatMap(t=>t.experience_type||[]))];for(const [id,vals] of [['#destinationFilter',ds],['#typeFilter',ts]]){const sel=$(id);vals.forEach(v=>{const o=document.createElement('option');o.value=o.textContent=v;sel.append(o)})}$$('.filters select').forEach(x=>x.onchange=renderTours)}
-function selectTour(t){const f=$('#leadForm');f.elements.selected_tour_id.value=t.id;f.elements.selected_tour_name.value=t.name;$('#tourName').value=t.name;f.elements.destination.value=t.destination||'';const n=duration(t);if(n)f.elements.duration.value=n;f.elements.budget.value=t.price_per_person||'';location.hash='contact';setMessage(f,`Đã chọn “${t.name}”. Hãy điền thông tin để được tư vấn.`,true)}
-function showDetails(t){const text=[`Điểm đến: ${t.destination||'—'}`,`Thời lượng: ${t.duration||'—'}`,`Dịch vụ gồm: ${(t.included_services||[]).join(', ')||'Xem tư vấn'}`,`Điểm nổi bật: ${(t.highlights||[]).join(', ')||'—'}`].join('\n');alert(`${t.name}\n\n${text}`)}
-async function loadTours(){renderSkeleton();try{const r=await fetch('data/tours.json');if(!r.ok)throw Error('failed');const d=await r.json();tours=Array.isArray(d)?d.filter(x=>x.tour_status==='active'):[];populateFilters();renderTours()}catch{const grid=$('#tourGrid');grid.replaceChildren(emptyState('Không thể tải danh sách tour lúc này. Vui lòng tải lại trang hoặc thử lại sau.'))}}
-function fieldData(form){return Object.fromEntries(new FormData(form).entries())}
-$('#plannerForm').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget,b=fieldData(f);b.interests=values('#interestChips');const btn=f.querySelector('button'),spin=btn.querySelector('.spinner');btn.disabled=true;spin.hidden=false;btn.querySelector('.button-text').textContent='AI đang lên kế hoạch…';setMessage(f,'');try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}),d=await r.json();if(!r.ok)throw Error(d.error);renderResult(d);$('#aiResult').hidden=false;$('#aiResult').scrollIntoView({behavior:'smooth'})}catch(err){setMessage(f,err.message||'Có lỗi xảy ra, vui lòng thử lại.')}finally{btn.disabled=false;spin.hidden=true;btn.querySelector('.button-text').textContent='Tạo lịch trình bằng AI'}});
-function renderResult(d){const it=$('#itinerary');it.replaceChildren(...(d.itinerary||[]).map(day=>{const a=document.createElement('article');a.className='day';a.innerHTML=`<p class="eyebrow">${escape(day.day||'')}</p><h3>${escape(day.title||'')}</h3>`;const ul=document.createElement('ul');(day.activities||[]).slice(0,6).forEach(x=>{const li=document.createElement('li');li.textContent=x;ul.append(li)});a.append(ul);return a}));if(!it.children.length)it.textContent='Chưa có lịch trình chi tiết.';const mt=$('#matchedTours');mt.replaceChildren(...(d.matchedTours||[]).map(t=>card(t,true)));if(!mt.children.length)mt.innerHTML='<p class="empty">Chưa có tour cố định phù hợp, liên hệ để báo giá riêng.</p>';const ad=$('#advice');ad.replaceChildren(...(d.advice||[]).map(x=>{const li=document.createElement('li');li.textContent=x;return li}));}
-$('#newPlan').onclick=()=>$('#planner').scrollIntoView({behavior:'smooth'});
-$('#leadForm').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget,b=fieldData(f);b.consent_to_contact=f.elements.consent_to_contact.checked;b.interests=values('#leadInterests');const key=crypto.randomUUID(),btn=f.querySelector('button');btn.disabled=true;setMessage(f,'Đang gửi yêu cầu…',true);try{const r=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':key},body:JSON.stringify(b)}),d=await r.json();if(!r.ok)throw Error(d.error);setMessage(f,`Yêu cầu đã được ghi nhận. Mã Lead ID: ${d.lead_id}`,true);f.reset();$('#tourName').value=''}catch(err){setMessage(f,err.message||'Không thể gửi yêu cầu. Vui lòng thử lại.')}finally{btn.disabled=false}});
-$('.menu').onclick=e=>{const n=$('nav'),open=n.classList.toggle('open');e.currentTarget.setAttribute('aria-expanded',open)};$$('nav a').forEach(a=>a.onclick=()=>{$('nav').classList.remove('open');$('.menu').setAttribute('aria-expanded','false')});chips('#interestChips');chips('#leadInterests');loadTours();
+const interests = ['Khám phá', 'Nghỉ dưỡng', 'Ẩm thực', 'Chụp ảnh', 'Thiên nhiên', 'Trekking', 'Gia đình', 'Văn hóa'];
+const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+let tours = [];
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => [...document.querySelectorAll(selector)];
+
+const money = (value) =>
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(value || 0));
+
+function sanitizeText(value, max = 200) {
+  return String(value ?? '')
+    .replace(/[<>]/g, '')
+    .replace(/[\u0000-\u001F\u007F]+/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+
+function getPersistedUtm() {
+  try {
+    const raw = sessionStorage.getItem('vietjourney_utm');
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function getCurrentUtm() {
+  const params = new URLSearchParams(window.location.search);
+  const query = {};
+  for (const key of UTM_KEYS) {
+    const value = params.get(key);
+    if (value) query[key] = sanitizeText(value, 128);
+  }
+
+  const merged = { ...getPersistedUtm(), ...query };
+  if (!merged.utm_source && Object.keys(merged).length) merged.utm_source = 'direct';
+  if (!Object.keys(merged).length) merged.utm_source = 'direct';
+
+  try {
+    sessionStorage.setItem('vietjourney_utm', JSON.stringify(merged));
+  } catch {
+    // no-op: storage may be unavailable in a restricted browser context
+  }
+
+  return merged;
+}
+
+function chips(target) {
+  const el = $(target);
+  interests.forEach((item) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'chip';
+    button.textContent = item;
+    button.onclick = () => button.classList.toggle('active');
+    el.append(button);
+  });
+}
+
+function values(selector) {
+  return $$(selector + ' .chip.active').map((item) => item.textContent);
+}
+
+function setMessage(form, text, ok = false) {
+  const element = form.querySelector('.form-message');
+  element.textContent = text;
+  element.className = 'form-message ' + (ok ? 'success' : 'error');
+}
+
+function duration(item) {
+  const match = Number(String(item.duration || '').match(/\d+/)?.[0]);
+  return match || 0;
+}
+
+function card(item, match = false) {
+  const element = document.createElement('article');
+  element.className = 'tour-card';
+
+  const image = document.createElement('img');
+  image.loading = 'lazy';
+  image.alt = item.name || 'Tour VietJourney';
+  image.src = item.image || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=900&q=80';
+  image.onerror = () => {
+    image.src = 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=900&q=80';
+  };
+  element.append(image);
+
+  const copy = document.createElement('div');
+  copy.className = 'tour-copy';
+  copy.innerHTML = `
+    <div class="tour-meta">${sanitizeText(item.destination)} · ${sanitizeText(String(item.duration || ''))}</div>
+    <h3>${sanitizeText(item.name)}</h3>
+    ${match ? `<p class="tour-meta">${sanitizeText(item.reason || 'Phù hợp với yêu cầu của bạn.')}</p>` : ''}
+    <div class="price">${money(item.price_per_person)}<small>/ người</small></div>
+    <div>${(item.experience_type || item.highlights || []).slice(0, 3).map((value) => `<span class="tag">${sanitizeText(value)}</span>`).join('')}</div>
+  `;
+
+  const actions = document.createElement('div');
+  actions.className = 'card-actions';
+
+  const detail = document.createElement('button');
+  detail.textContent = 'Khám phá tour';
+  detail.onclick = () => showDetails(item);
+
+  const choose = document.createElement('button');
+  choose.textContent = match ? 'Chọn tour' : 'Tư vấn tour này';
+  choose.onclick = () => selectTour(item);
+
+  actions.append(detail, choose);
+  copy.append(actions);
+  element.append(copy);
+  return element;
+}
+
+function emptyState(text) {
+  const element = document.createElement('p');
+  element.className = 'empty';
+  element.textContent = text;
+  return element;
+}
+
+function renderSkeleton() {
+  const grid = $('#tourGrid');
+  grid.replaceChildren(
+    ...Array.from({ length: 3 }, () => {
+      const skeleton = document.createElement('article');
+      skeleton.className = 'tour-card skeleton-card';
+      skeleton.innerHTML = `
+        <div class="skeleton skeleton-image"></div>
+        <div class="tour-copy">
+          <i class="skeleton skeleton-line short"></i>
+          <i class="skeleton skeleton-line"></i>
+          <i class="skeleton skeleton-line medium"></i>
+          <i class="skeleton skeleton-button"></i>
+        </div>
+      `;
+      return skeleton;
+    })
+  );
+}
+
+function renderTours() {
+  const destination = $('#destinationFilter').value;
+  const type = $('#typeFilter').value;
+  const durationFilter = $('#durationFilter').value;
+  const budgetFilter = $('#budgetFilter').value;
+
+  const filtered = tours.filter((tour) => {
+    const length = duration(tour);
+    const price = Number(tour.price_per_person);
+
+    return (
+      (!destination || tour.destination === destination) &&
+      (!type || (tour.experience_type || []).includes(type)) &&
+      (!durationFilter ||
+        (durationFilter === 'short' ? length <= 3 : durationFilter === 'medium' ? length >= 4 && length <= 6 : length >= 7)) &&
+      (!budgetFilter ||
+        (budgetFilter === 'under5' ? price < 5_000_000 : budgetFilter === '5to10' ? price >= 5_000_000 && price <= 10_000_000 : price > 10_000_000))
+    );
+  });
+
+  const grid = $('#tourGrid');
+  grid.replaceChildren(
+    ...(filtered.length
+      ? filtered.map((tour) => card(tour))
+      : [emptyState('Chưa có hành trình phù hợp với bộ lọc này. Hãy thử một lựa chọn khác hoặc để AI gợi ý riêng cho bạn.')])
+  );
+}
+
+function populateFilters() {
+  const destinations = [...new Set(tours.map((tour) => tour.destination).filter(Boolean))];
+  const types = [...new Set(tours.flatMap((tour) => tour.experience_type || []))];
+
+  for (const [selector, valuesList] of [['#destinationFilter', destinations], ['#typeFilter', types]]) {
+    const select = $(selector);
+    valuesList.forEach((value) => {
+      const option = document.createElement('option');
+      option.value = option.textContent = value;
+      select.append(option);
+    });
+  }
+
+  $$('.filters select').forEach((select) => {
+    select.onchange = renderTours;
+  });
+}
+
+function selectTour(tour) {
+  const form = $('#leadForm');
+  form.elements.selected_tour_id.value = tour.id;
+  form.elements.selected_tour_name.value = tour.name;
+  $('#tourName').value = tour.name;
+  form.elements.destination.value = tour.destination || '';
+  const length = duration(tour);
+  if (length) form.elements.duration.value = length;
+  form.elements.budget.value = tour.price_per_person || '';
+  location.hash = 'contact';
+  setMessage(form, `Đã chọn “${tour.name}”. Hãy điền thông tin để được tư vấn.`, true);
+}
+
+function showDetails(tour) {
+  const details = [
+    `Điểm đến: ${tour.destination || '—'}`,
+    `Thời lượng: ${tour.duration || '—'}`,
+    `Dịch vụ gồm: ${(tour.included_services || []).join(', ') || 'Xem tư vấn'}`,
+    `Điểm nổi bật: ${(tour.highlights || []).join(', ') || '—'}`,
+  ].join('\n');
+
+  alert(`${tour.name}\n\n${details}`);
+}
+
+async function loadTours() {
+  renderSkeleton();
+
+  try {
+    const response = await fetch('data/tours.json');
+    if (!response.ok) throw new Error('failed');
+
+    const data = await response.json();
+    tours = Array.isArray(data) ? data.filter((tour) => tour.tour_status === 'active') : [];
+    populateFilters();
+    renderTours();
+  } catch {
+    const grid = $('#tourGrid');
+    grid.replaceChildren(emptyState('Không thể tải danh sách tour lúc này. Vui lòng tải lại trang hoặc thử lại sau.'));
+  }
+}
+
+function fieldData(form) {
+  return Object.fromEntries(new FormData(form).entries());
+}
+
+$('#plannerForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const payload = fieldData(form);
+  payload.interests = values('#interestChips');
+
+  const submitButton = form.querySelector('button');
+  const spinner = submitButton.querySelector('.spinner');
+  submitButton.disabled = true;
+  spinner.hidden = false;
+  submitButton.querySelector('.button-text').textContent = 'AI đang lên kế hoạch…';
+  setMessage(form, '');
+
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Có lỗi xảy ra, vui lòng thử lại.');
+
+    renderResult(data);
+    $('#aiResult').hidden = false;
+    $('#aiResult').scrollIntoView({ behavior: 'smooth' });
+  } catch (error) {
+    setMessage(form, error.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+  } finally {
+    submitButton.disabled = false;
+    spinner.hidden = true;
+    submitButton.querySelector('.button-text').textContent = 'Tạo lịch trình bằng AI';
+  }
+});
+
+function renderResult(data) {
+  const itinerary = $('#itinerary');
+  itinerary.replaceChildren(
+    ...(data.itinerary || []).map((day) => {
+      const article = document.createElement('article');
+      article.className = 'day';
+      article.innerHTML = `<p class="eyebrow">${sanitizeText(day.day || '')}</p><h3>${sanitizeText(day.title || '')}</h3>`;
+      const list = document.createElement('ul');
+      (day.activities || []).slice(0, 6).forEach((item) => {
+        const entry = document.createElement('li');
+        entry.textContent = item;
+        list.append(entry);
+      });
+      article.append(list);
+      return article;
+    })
+  );
+
+  if (!itinerary.children.length) itinerary.textContent = 'Chưa có lịch trình chi tiết.';
+
+  const matches = $('#matchedTours');
+  matches.replaceChildren(...(data.matchedTours || []).map((tour) => card(tour, true)));
+  if (!matches.children.length) {
+    matches.innerHTML = '<p class="empty">Chưa có tour cố định phù hợp, liên hệ để báo giá riêng.</p>';
+  }
+
+  const advice = $('#advice');
+  advice.replaceChildren(
+    ...(data.advice || []).map((item) => {
+      const entry = document.createElement('li');
+      entry.textContent = item;
+      return entry;
+    })
+  );
+}
+
+$('#newPlan').onclick = () => $('#planner').scrollIntoView({ behavior: 'smooth' });
+
+$('#leadForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const payload = fieldData(form);
+  payload.consent_to_contact = form.elements.consent_to_contact.checked;
+  payload.interests = values('#leadInterests');
+
+  const utm = getCurrentUtm();
+  Object.assign(payload, utm);
+
+  const submitButton = form.querySelector('button');
+  submitButton.disabled = true;
+  setMessage(form, 'Đang gửi yêu cầu…', true);
+
+  try {
+    const response = await fetch('/api/leads', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': crypto.randomUUID(),
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Không thể gửi yêu cầu. Vui lòng thử lại.');
+
+    setMessage(form, `Yêu cầu đã được ghi nhận. Mã Lead ID: ${data.lead_id}`, true);
+    form.reset();
+    $('#tourName').value = '';
+  } catch (error) {
+    setMessage(form, error.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.');
+  } finally {
+    submitButton.disabled = false;
+  }
+});
+
+$('.menu').onclick = (event) => {
+  const nav = $('nav');
+  const open = nav.classList.toggle('open');
+  event.currentTarget.setAttribute('aria-expanded', open);
+};
+
+$$('nav a').forEach((link) => {
+  link.onclick = () => {
+    $('nav').classList.remove('open');
+    $('.menu').setAttribute('aria-expanded', 'false');
+  };
+});
+
+chips('#interestChips');
+chips('#leadInterests');
+getCurrentUtm();
+loadTours();

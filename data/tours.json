@@ -1,1 +1,93 @@
-[]
+[
+  {
+    "id": "ha-giang-loop",
+    "name": "Hà Giang Loop Adventure",
+    "destination": "Hà Giang",
+    "duration": "3 ngày 2 đêm",
+    "price_per_person": 5200000,
+    "currency": "VND",
+    "tour_status": "active",
+    "image": "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=900&q=80",
+    "included_services": ["Xe đưa đón", "Khách sạn 2 sao", "Hướng dẫn viên địa phương", "Bữa sáng"],
+    "highlights": ["Cao nguyên đá", "Đèo Mã Pí Lèng", "Làng dân tộc", "Cảnh đẹp ở mùa mưa"],
+    "experience_type": ["Thiên nhiên", "Trekking"]
+  },
+  {
+    "id": "ninh-binh-scenic",
+    "name": "Ninh Bình Heritage Escape",
+    "destination": "Ninh Bình",
+    "duration": "2 ngày 1 đêm",
+    "price_per_person": 3900000,
+    "currency": "VND",
+    "tour_status": "active",
+    "image": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=900&q=80",
+    "included_services": ["Xe đưa đón", "Phòng nghỉ", "Ăn sáng", "Vé tham quan"],
+    "highlights": ["Tam Cốc", "Tràng An", "Bái Đính", "Đi thuyền sông Ngô Đồng"],
+    "experience_type": ["Văn hóa", "Nghỉ dưỡng"]
+  },
+  {
+    "id": "hanoi-halong",
+    "name": "Hà Nội + Vịnh Hạ Long",
+    "destination": "Hà Nội",
+    "duration": "4 ngày 3 đêm",
+    "price_per_person": 8700000,
+    "currency": "VND",
+    "tour_status": "active",
+    "image": "https://images.unsplash.com/photo-1505761671935-60eb3a780d4b?auto=format&fit=crop&w=900&q=80",
+    "included_services": ["Khách sạn", "Tour vịnh Hạ Long", "Nước uống", "Đưa đón"],
+    "highlights": ["Làng chài", "Đảo đá vôi", "Hạ Long bay", "Ẩm thực Hà Nội"],
+    "experience_type": ["Gia đình", "Ẩm thực"]
+  },
+  {
+    "id": "da-nang-hoi-an",
+    "name": "Đà Nẵng - Hội An Chill",
+    "destination": "Đà Nẵng",
+    "duration": "4 ngày 3 đêm",
+    "price_per_person": 7600000,
+    "currency": "VND",
+    "tour_status": "active",
+    "image": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80",
+    "included_services": ["Khách sạn 3 sao", "Xe máy hoặc xe đưa đón", "Bữa sáng", "Bảo hiểm du lịch"],
+    "highlights": ["Bãi biển Mỹ Khê", "Old Town Hội An", "Cầu Vàng", "Món ăn địa phương"],
+    "experience_type": ["Nghỉ dưỡng", "Ẩm thực"]
+  },
+  {
+    "id": "mekong-delta",
+    "name": "Mekong Delta Weekend",
+    "destination": "Cần Thơ",
+    "duration": "2 ngày 1 đêm",
+    "price_per_person": 3200000,
+    "currency": "VND",
+    "tour_status": "active",
+    "image": "https://images.unsplash.com/photo-1521295121783-8a321d551ad2?auto=format&fit=crop&w=900&q=80",
+    "included_services": ["Chở đi tham quan", "Phòng nghỉ", "Hướng dẫn", "Ăn trưa"],
+    "highlights": ["Đồng bằng sông Cửu Long", "Chợ nổi", "Chè đậu", "Vườn trái cây"],
+    "experience_type": ["Thiên nhiên", "Văn hóa"]
+  },
+  {
+    "id": "phu-quoc-island",
+    "name": "Phú Quốc Island Retreat",
+    "destination": "Phú Quốc",
+    "duration": "5 ngày 4 đêm",
+    "price_per_person": 11800000,
+    "currency": "VND",
+    "tour_status": "active",
+    "image": "https://images.unsplash.com/photo-1561361513-2d000a50f0dc?auto=format&fit=crop&w=900&q=80",
+    "included_services": ["Khách sạn biển", "Dịch vụ đưa đón", "Bữa sáng", "Tour đảo"],
+    "highlights": ["Bãi biển đẹp", "Vườn tiêu", "Chèo thuyền kayak", "Lặn biển"],
+    "experience_type": ["Nghỉ dưỡng", "Thiên nhiên"]
+  },
+  {
+    "id": "sapa-mountain",
+    "name": "Sapa Mountain Trail",
+    "destination": "Lào Cai",
+    "duration": "3 ngày 2 đêm",
+    "price_per_person": 6100000,
+    "currency": "VND",
+    "tour_status": "active",
+    "image": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
+    "included_services": ["Khách sạn", "Xe đưa đón", "Hướng dẫn viên", "Hỗ trợ thuê đồ"],
+    "highlights": ["Fansipan", "Bản làng", "Cánh đồng bậc thang", "Đi bộ đường dài"],
+    "experience_type": ["Trekking", "Thiên nhiên"]
+  }
+]
