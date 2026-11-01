@@ -37,6 +37,26 @@ create table if not exists public.leads (
   updated_at timestamptz not null default now()
 );
 
+alter table public.leads
+  add column if not exists email text,
+  add column if not exists phone text,
+  add column if not exists zalo_phone text,
+  add column if not exists source text default 'website',
+  add column if not exists lead_score integer default 0,
+  add column if not exists lead_level text default 'NEW',
+  add column if not exists voucher_code text,
+  add column if not exists voucher_status text default 'PENDING',
+  add column if not exists voucher_channel text default 'email',
+  add column if not exists lead_status text not null default 'NEW',
+  add column if not exists notification_status text not null default 'PENDING',
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now(),
+  add column if not exists utm_source text default 'direct',
+  add column if not exists utm_medium text,
+  add column if not exists utm_campaign text,
+  add column if not exists utm_content text,
+  add column if not exists utm_term text;
+
 create index if not exists leads_created_at_idx on public.leads (created_at desc);
 create index if not exists leads_status_idx on public.leads (lead_status, notification_status);
 create index if not exists leads_utm_idx on public.leads (utm_source, utm_campaign, utm_medium);
@@ -56,22 +76,6 @@ $$;
 
 drop trigger if exists leads_updated_at on public.leads;
 create trigger leads_updated_at before update on public.leads for each row execute function public.touch_leads_updated_at();
-
-alter table public.leads
-  add column if not exists email text,
-  add column if not exists phone text,
-  add column if not exists zalo_phone text,
-  add column if not exists source text default 'website',
-  add column if not exists lead_score integer default 0,
-  add column if not exists lead_level text default 'NEW',
-  add column if not exists voucher_code text,
-  add column if not exists voucher_status text default 'PENDING',
-  add column if not exists voucher_channel text default 'email',
-  add column if not exists utm_source text default 'direct',
-  add column if not exists utm_medium text,
-  add column if not exists utm_campaign text,
-  add column if not exists utm_content text,
-  add column if not exists utm_term text;
 
 update public.leads
 set utm_source = coalesce(utm_source, 'direct')
