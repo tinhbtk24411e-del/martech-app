@@ -238,9 +238,10 @@ $('#plannerForm').addEventListener('submit', async (event) => {
 
   const submitButton = form.querySelector('button');
   const spinner = submitButton.querySelector('.spinner');
+  const buttonText = submitButton.querySelector('.button-text');
   submitButton.disabled = true;
-  spinner.hidden = false;
-  submitButton.querySelector('.button-text').textContent = 'AI đang lên kế hoạch…';
+  if (spinner) spinner.hidden = false;
+  if (buttonText) buttonText.textContent = 'AI đang lên kế hoạch…';
   setMessage(form, '');
 
   try {
@@ -259,8 +260,8 @@ $('#plannerForm').addEventListener('submit', async (event) => {
     setMessage(form, error.message || 'Có lỗi xảy ra, vui lòng thử lại.');
   } finally {
     submitButton.disabled = false;
-    spinner.hidden = true;
-    submitButton.querySelector('.button-text').textContent = 'Tạo lịch trình bằng AI';
+    if (spinner) spinner.hidden = true;
+    if (buttonText) buttonText.textContent = 'Tạo lịch trình bằng AI';
   }
 });
 
