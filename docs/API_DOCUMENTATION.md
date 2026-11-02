@@ -2,6 +2,8 @@
 
 `POST /api/aichat` nhận `message` (bắt buộc), `history` (tối đa 10 lượt gần nhất, mỗi lượt có `role: "user" | "assistant" | "model"` và `text`), và `customer` tùy chọn gồm `destination`, `duration`, `budget`, `budget_basis` (`per_person` hoặc `total`), `party_size`, `travel_date`, `interests`. API trả `{ "success": true, "reply": "..." }`. Cần cấu hình `OPENROUTER_API_KEY` trong môi trường server; endpoint dùng router `openrouter/free` để chọn trong các model miễn phí có sẵn. Các model miễn phí vẫn có thể bị giới hạn lượt hoặc tạm thời không khả dụng. Lịch sử và ngữ cảnh khách hàng được giới hạn/làm sạch phía server.
 
+Prompt tư vấn yêu cầu câu trả lời thông thường tối đa khoảng 80 từ, kết luận ngân sách trước, không tự giả định điểm xuất phát/ngày đi, không trình bày giá ước tính như giá đã xác minh và kết thúc bằng tối đa một gợi ý bước tiếp theo phù hợp. Yêu cầu lịch trình chi tiết được trả lời theo ngày và có thể dài hơn.
+
 `POST /api/leads` nhận các trường biểu mẫu lead, header `Idempotency-Key` (UUID), và các tham số marketing `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` khi có. Bên cạnh đó, hỗ trợ các trường marketing/CRM mới: `email`, `phone`, `zalo_phone`, `source`, `lead_score`, `lead_level`, `voucher_code`, `voucher_status`, `voucher_channel`. `consent_to_contact` bắt buộc là `true`; tour được xác thực lại trên server. Response thành công: `lead_id` và `notification_status`.
 
 Ví dụ payload lead hoàn chỉnh:
