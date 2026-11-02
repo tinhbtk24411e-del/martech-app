@@ -113,6 +113,7 @@ export default async function handler(req, res) {
     }
 
     const row = {
+      lead_id: crypto.randomUUID(),
       request_id: requestId,
       name,
       contact,
