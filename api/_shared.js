@@ -81,6 +81,7 @@ export function method(req, res) {
   }
 
   if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST, OPTIONS');
     send(res, 405, { error: 'Chỉ hỗ trợ POST.' });
     return false;
   }
