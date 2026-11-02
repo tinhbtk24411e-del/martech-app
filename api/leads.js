@@ -9,7 +9,9 @@ const supabase = async (endpoint, options = {}) => {
   const key = process.env.SUPABASE_SECRET_KEY;
 
   if (!base || !key) {
-    throw new Error('Supabase is not configured');
+    const error = new Error('Supabase is not configured');
+    error.code = 'SUPABASE_NOT_CONFIGURED';
+    throw error;
   }
 
   const headers = {
@@ -20,6 +22,15 @@ const supabase = async (endpoint, options = {}) => {
 
   return fetch(`${base.replace(/\/$/, '')}/rest/v1/${endpoint}`, { ...options, headers });
 };
+
+async function supabaseErrorCode(response) {
+  try {
+    const body = await response.clone().json();
+    return typeof body.code === 'string' && /^[A-Z0-9]{1,12}$/i.test(body.code) ? body.code : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function normalizeUtm(data) {
   const cleaned = utmFields(data);
@@ -73,6 +84,8 @@ export default async function handler(req, res) {
 
   const requestId = clean(req.headers['idempotency-key'] || b.request_id || '', 80) || crypto.randomUUID();
 
+  const failure = { stage: 'load_tours', status: undefined, databaseCode: undefined };
+
   try {
     const active = await tours();
     const selected = b.selected_tour_id ? active.find((t) => String(t.id) === String(b.selected_tour_id)) : null;
@@ -81,17 +94,22 @@ export default async function handler(req, res) {
       return send(res, 400, { error: 'Tour được chọn không còn hợp lệ.' });
     }
 
+    failure.stage = 'check_duplicate';
     const existingResponse = await supabase(`leads?request_id=eq.${encodeURIComponent(requestId)}&select=lead_id,notification_status`);
-    if (existingResponse.ok) {
-      const prior = await existingResponse.json();
-      const first = Array.isArray(prior) ? prior[0] : null;
-      if (first) {
-        return send(res, 200, {
-          lead_id: first.lead_id,
-          notification_status: first.notification_status || 'PENDING',
-          duplicate: true,
-        });
-      }
+    if (!existingResponse.ok) {
+      failure.status = existingResponse.status;
+      failure.databaseCode = await supabaseErrorCode(existingResponse);
+      throw new Error('Supabase duplicate check failed');
+    }
+
+    const prior = await existingResponse.json();
+    const first = Array.isArray(prior) ? prior[0] : null;
+    if (first) {
+      return send(res, 200, {
+        lead_id: first.lead_id,
+        notification_status: first.notification_status || 'PENDING',
+        duplicate: true,
+      });
     }
 
     const row = {
@@ -127,6 +145,7 @@ export default async function handler(req, res) {
       utm_term: utm.utm_term || null,
     };
 
+    failure.stage = 'insert_lead';
     const saveResponse = await supabase('leads', {
       method: 'POST',
       headers: { Prefer: 'return=representation' },
@@ -134,10 +153,12 @@ export default async function handler(req, res) {
     });
 
     if (!saveResponse.ok) {
-      const text = await saveResponse.text().catch(() => '');
-      throw new Error(`save failed: ${text.slice(0, 200)}`);
+      failure.status = saveResponse.status;
+      failure.databaseCode = await supabaseErrorCode(saveResponse);
+      throw new Error('Supabase lead insert failed');
     }
 
+    failure.stage = 'read_insert_result';
     const payload = await saveResponse.json();
     const lead = Array.isArray(payload) ? payload[0] : payload;
 
@@ -200,11 +221,18 @@ export default async function handler(req, res) {
         }
 
         if (notificationStatus !== 'PENDING') {
-          await supabase(`leads?lead_id=eq.${encodeURIComponent(lead.lead_id)}`, {
+          const updateResponse = await supabase(`leads?lead_id=eq.${encodeURIComponent(lead.lead_id)}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ notification_status: notificationStatus }),
           });
+          if (!updateResponse.ok) {
+            console.error('[api/leads] Notification status update failed', {
+              status: updateResponse.status,
+              databaseCode: await supabaseErrorCode(updateResponse),
+            });
+            notificationStatus = 'PENDING';
+          }
         }
       } catch {
         notificationStatus = 'PENDING';
@@ -215,7 +243,13 @@ export default async function handler(req, res) {
       lead_id: lead.lead_id,
       notification_status: notificationStatus,
     });
-  } catch {
+  } catch (error) {
+    console.error('[api/leads] Request failed', {
+      stage: failure.stage,
+      status: failure.status,
+      databaseCode: failure.databaseCode,
+      errorCode: error?.code,
+    });
     return send(res, 503, { error: 'Chưa thể ghi nhận yêu cầu. Vui lòng thử lại sau.' });
   }
 }
