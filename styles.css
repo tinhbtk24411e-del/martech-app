@@ -691,6 +691,7 @@ legend {
 }
 .form-message.error { color: var(--danger); }
 .form-message.success { color: var(--success); }
+.form-message.warning { color: #8a5a00; }
 .spinner {
   width: 14px;
   height: 14px;

@@ -71,10 +71,11 @@ function values(selector) {
   return $$(selector + ' .chip.active').map((item) => item.textContent);
 }
 
-function setMessage(form, text, ok = false) {
+function setMessage(form, text, status = false) {
   const element = form.querySelector('.form-message');
   element.textContent = text;
-  element.className = 'form-message ' + (ok ? 'success' : 'error');
+  const messageStatus = status === true ? 'success' : status === 'warning' ? 'warning' : 'error';
+  element.className = `form-message ${messageStatus}`;
 }
 
 function duration(item) {
@@ -547,9 +548,12 @@ $('#leadForm').addEventListener('submit', async (event) => {
     const notificationMessage = data.notification_status === 'SENT'
       ? ' Email xác nhận đã được gửi.'
       : data.notification_status === 'FAILED'
-        ? ' Tuy nhiên, hệ thống chưa gửi được email; đội ngũ sẽ kiểm tra lại.'
-        : ' Tuy nhiên, email chưa được xác nhận gửi; đội ngũ sẽ kiểm tra lại.';
-    setMessage(form, `Yêu cầu đã được ghi nhận.${notificationMessage} Mã Lead ID: ${data.lead_id}`, data.notification_status === 'SENT');
+        ? ' n8n báo email chưa gửi được; đội ngũ sẽ kiểm tra lại.'
+        : ' Email có thể đã gửi, nhưng hệ thống chưa nhận được xác nhận từ n8n.';
+    const messageStatus = data.notification_status === 'SENT'
+      ? true
+      : data.notification_status === 'PENDING' ? 'warning' : false;
+    setMessage(form, `Yêu cầu đã được ghi nhận.${notificationMessage} Mã Lead ID: ${data.lead_id}`, messageStatus);
     form.reset();
     $('#tourName').value = '';
     updateBudgetPreview();

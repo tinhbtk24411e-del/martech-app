@@ -229,9 +229,12 @@ export default async function handler(req, res) {
         const ack = webhook.ok ? await webhook.json().catch(() => ({})) : {};
         if (ack.email_sent === true) {
           notificationStatus = 'SENT';
-        } else if (webhook.ok) {
+        } else if (ack.email_sent === false) {
           notificationStatus = 'FAILED';
-          console.error('[api/leads] Notification webhook did not confirm email delivery');
+        } else {
+          console.error('[api/leads] Notification webhook response did not confirm email delivery', {
+            status: webhook.status,
+          });
         }
 
         if (notificationStatus !== 'PENDING') {
