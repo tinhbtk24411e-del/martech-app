@@ -154,7 +154,7 @@ ${JSON.stringify(customer)}
         },
         signal: controller.signal,
         body: JSON.stringify({
-          model: 'google/gemma-4-26b-a4b-it:free',
+          model: 'openrouter/free',
           messages: contents,
           temperature: 0.7,
           max_tokens: 1200,
@@ -169,6 +169,13 @@ ${JSON.stringify(customer)}
         status: response.status,
         details: details.slice(0, 1500),
       });
+
+      if (response.status === 429) {
+        return send(res, 503, {
+          success: false,
+          error: 'Các model AI miễn phí đang quá tải. Vui lòng thử lại sau ít phút.',
+        });
+      }
 
       return send(res, 502, {
         success: false,
