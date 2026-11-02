@@ -170,11 +170,12 @@ export default async function handler(req, res) {
     let notificationStatus = 'PENDING';
 
     if (process.env.N8N_WEBHOOK_URL) {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 15_000);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15_000);
+      let webhook;
 
-        const webhook = await fetch(process.env.N8N_WEBHOOK_URL, {
+      try {
+        webhook = await fetch(process.env.N8N_WEBHOOK_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -211,33 +212,52 @@ export default async function handler(req, res) {
             utm_term: row.utm_term,
           }),
         });
-
+      } catch (error) {
+        console.error('[api/leads] Notification webhook request failed', {
+          errorCode: error?.name || 'UNKNOWN',
+        });
+      } finally {
         clearTimeout(timer);
+      }
 
+      if (webhook) {
+        if (!webhook.ok) {
+          console.error('[api/leads] Notification webhook returned an error', {
+            status: webhook.status,
+          });
+        }
         const ack = webhook.ok ? await webhook.json().catch(() => ({})) : {};
         if (ack.email_sent === true) {
           notificationStatus = 'SENT';
         } else if (webhook.ok) {
           notificationStatus = 'FAILED';
+          console.error('[api/leads] Notification webhook did not confirm email delivery');
         }
 
         if (notificationStatus !== 'PENDING') {
-          const updateResponse = await supabase(`leads?lead_id=eq.${encodeURIComponent(lead.lead_id)}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notification_status: notificationStatus }),
-          });
-          if (!updateResponse.ok) {
+          try {
+            const updateResponse = await supabase(`leads?lead_id=eq.${encodeURIComponent(lead.lead_id)}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ notification_status: notificationStatus }),
+            });
+            if (!updateResponse.ok) {
+              console.error('[api/leads] Notification status update failed', {
+                status: updateResponse.status,
+                databaseCode: await supabaseErrorCode(updateResponse),
+              });
+              notificationStatus = 'PENDING';
+            }
+          } catch (error) {
             console.error('[api/leads] Notification status update failed', {
-              status: updateResponse.status,
-              databaseCode: await supabaseErrorCode(updateResponse),
+              errorCode: error?.name || 'UNKNOWN',
             });
             notificationStatus = 'PENDING';
           }
         }
-      } catch {
-        notificationStatus = 'PENDING';
       }
+    } else {
+      console.error('[api/leads] Notification webhook is not configured');
     }
 
     return send(res, 201, {

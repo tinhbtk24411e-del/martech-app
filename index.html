@@ -18,8 +18,8 @@
       <nav aria-label="Điều hướng chính">
         <a href="#top">Trang chủ</a>
         <a href="#tours">Khám phá tour</a>
-        <a href="#about">Giới thiệu</a>
-        <a href="#contact">Tư vấn chuyến đi</a>
+        <a href="#how-it-works">Cách hoạt động</a>
+        <a href="#contact">Tư vấn</a>
         <a class="nav-cta" href="#contact">Gửi yêu cầu</a>
       </nav>
     </header>
@@ -27,71 +27,116 @@
       <section id="top" class="hero">
         <div class="hero-glow" aria-hidden="true"></div>
         <div class="hero-content">
-          <p class="eyebrow light">VIETNAM, YOUR WAY</p>
-          <h1>Khám phá Việt Nam<br><em>theo cách của riêng bạn.</em></h1>
-          <p>Khám phá các tour phù hợp và gửi yêu cầu để đội ngũ VietJourney tư vấn chuyến đi cho bạn.</p>
+          <p class="eyebrow light">CHUYẾN ĐI CỦA BẠN, BẮT ĐẦU TỪ ĐÂY</p>
+          <h1>Mình cùng tìm<br><em>một chuyến đi thật vui nhé?</em></h1>
+          <p>Chọn nơi bạn muốn đến, xem những hành trình đang có và để VietJourney giúp bạn lên kế hoạch vừa ý.</p>
           <div class="actions">
-            <a class="button coral" href="#tours">Khám phá hành trình <span>→</span></a>
-            <a class="button ghost" href="#contact">Gửi yêu cầu tư vấn <span>→</span></a>
+            <a class="button coral" href="#tours">Xem các chuyến đi <span>→</span></a>
+            <a class="button ghost" href="#contact">Nhờ tư vấn <span>♡</span></a>
           </div>
-          <div class="hero-proof"><span><b>01</b> nền tảng</span><i></i><span>Hành trình<br>được cá nhân hoá</span></div>
+          <div class="hero-proof"><span>✦ Hành trình có thật</span><i></i><span>♡ Tư vấn theo nhu cầu</span></div>
         </div>
         <div class="hero-search">
-          <span class="search-mark">✦</span>
-          <p><strong>Cần tư vấn chuyến đi?</strong><br>Chia sẻ nhu cầu, đội ngũ VietJourney sẽ hỗ trợ bạn.</p>
-          <a href="#contact" aria-label="Gửi yêu cầu tư vấn">Bắt đầu <span>→</span></a>
+          <span class="search-mark" aria-hidden="true">✦</span>
+          <p class="finder-kicker">BẮT ĐẦU THẬT DỄ</p>
+          <h2>Bạn muốn đi đâu?</h2>
+          <p class="finder-copy">Chọn điểm đến để tìm hành trình hợp gu.</p>
+          <form id="destinationSearch" class="destination-search">
+            <label class="sr-only" for="destinationQuery">Điểm đến</label>
+            <select id="destinationQuery" aria-label="Chọn điểm đến">
+              <option value="">Mình chưa chọn điểm đến</option>
+            </select>
+            <label class="sr-only" for="budgetQuery">Ngân sách mỗi người</label>
+            <select id="budgetQuery" aria-label="Chọn khoảng ngân sách mỗi người">
+              <option value="">Mọi mức ngân sách</option>
+              <option value="under2">Dưới 2,000,000 đồng</option>
+              <option value="2to5">2,000,000–5,000,000 đồng</option>
+              <option value="5to8">5,000,000–8,000,000 đồng</option>
+              <option value="8to12">8,000,000–12,000,000 đồng</option>
+              <option value="over12">Trên 12,000,000 đồng</option>
+            </select>
+            <button class="button teal" type="submit">Tìm chuyến đi <span>→</span></button>
+          </form>
+          <div class="finder-note"><span>☀</span> Chưa biết chọn đâu? Cứ xem những nơi mọi người yêu thích.</div>
         </div>
+      </section>
+      <section class="promise-strip" aria-label="VietJourney đồng hành cùng bạn">
+        <div><span>01</span><p><strong>Tour rõ ràng</strong><small>Thông tin từ dữ liệu VietJourney</small></p></div>
+        <div><span>02</span><p><strong>Chọn theo ý bạn</strong><small>Lọc nơi đến, thời gian và ngân sách</small></p></div>
+        <div><span>03</span><p><strong>Luôn có người hỗ trợ</strong><small>Để lại lời nhắn, tụi mình sẽ liên hệ</small></p></div>
       </section>
       <section id="tours" class="section">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">HÀNH TRÌNH TUYỂN CHỌN</p>
-            <h2>Tìm một chuyến đi đáng nhớ</h2>
-            <p>Những hành trình đang mở bán từ VietJourney.</p>
+            <p class="eyebrow">GỢI Ý ĐANG CÓ</p>
+            <h2>Chọn chuyến đi bạn thích</h2>
+            <p id="tourCount">Những hành trình đang mở bán từ VietJourney.</p>
           </div>
-          <a href="#contact" class="text-link">Cần tư vấn riêng? →</a>
+          <a href="#contact" class="text-link">Chưa biết chọn? Tụi mình tư vấn nhé →</a>
         </div>
+        <div class="tour-tools">
+          <label class="tour-search"><span aria-hidden="true">⌕</span><span class="sr-only">Tìm tour</span><input id="tourSearch" type="search" placeholder="Thử tìm Đà Nẵng, biển, trekking..." autocomplete="off"></label>
+          <button id="savedToggle" class="saved-toggle" type="button" aria-pressed="false">♡ <span>Chuyến đi đã lưu</span><b id="savedCount">0</b></button>
+        </div>
+        <div id="experienceShortcuts" class="experience-shortcuts" aria-label="Lọc nhanh theo trải nghiệm"></div>
         <div class="filters" aria-label="Bộ lọc tour">
           <label>Điểm đến<select id="destinationFilter"><option value="">Tất cả điểm đến</option></select></label>
           <label>Thời lượng<select id="durationFilter"><option value="">Mọi thời lượng</option><option value="short">1–3 ngày</option><option value="medium">4–6 ngày</option><option value="long">7+ ngày</option></select></label>
-          <label>Ngân sách<select id="budgetFilter"><option value="">Mọi mức giá</option><option value="under5">Dưới 5 triệu</option><option value="5to10">5–10 triệu</option><option value="over10">Trên 10 triệu</option></select></label>
+          <label>Ngân sách<select id="budgetFilter"><option value="">Mọi mức giá</option><option value="under2">Dưới 2,000,000 đồng</option><option value="2to5">2,000,000–5,000,000 đồng</option><option value="5to8">5,000,000–8,000,000 đồng</option><option value="8to12">8,000,000–12,000,000 đồng</option><option value="over12">Trên 12,000,000 đồng</option></select></label>
           <label>Trải nghiệm<select id="typeFilter"><option value="">Mọi trải nghiệm</option></select></label>
         </div>
         <div id="tourGrid" class="tour-grid" aria-live="polite"><p class="empty">Đang tải hành trình…</p></div>
       </section>
+      <section id="how-it-works" class="how-section">
+        <div class="how-intro">
+          <p class="eyebrow">NHẸ NHÀNG THÔI</p>
+          <h2>Đi chơi vui, lên kế hoạch cũng vui.</h2>
+          <p>Không cần biết bắt đầu từ đâu. Cứ chọn điều bạn thích, phần còn lại để tụi mình cùng bạn tính tiếp.</p>
+        </div>
+        <div class="how-steps">
+          <article><span>01</span><div><h3>Khám phá</h3><p>Tìm tour theo nơi đến, ngân sách hoặc trải nghiệm bạn thích.</p></div></article>
+          <article><span>02</span><div><h3>Lưu điều bạn ưng</h3><p>Nhấn trái tim để giữ lại những chuyến đi muốn xem sau.</p></div></article>
+          <article><span>03</span><div><h3>Trò chuyện với tụi mình</h3><p>Gửi nhu cầu, đội ngũ sẽ liên hệ để tư vấn rõ hơn.</p></div></article>
+        </div>
+      </section>
       <section id="contact" class="lead-section">
         <div>
-          <p class="eyebrow light">TƯ VẤN CÙNG VIETJOURNEY</p>
-          <h2>Để chúng tôi cùng bạn<br>tạo nên hành trình riêng.</h2>
-          <p>Đội ngũ tư vấn sẽ liên hệ để hoàn thiện kế hoạch phù hợp nhất.</p>
+          <p class="eyebrow light">TỤI MÌNH LUÔN SẴN SÀNG</p>
+          <h2>Kể tụi mình nghe<br>bạn đang mong chuyến đi thế nào.</h2>
+          <p>Để lại vài thông tin cơ bản thôi. Đội ngũ VietJourney sẽ cùng bạn tìm phương án phù hợp.</p>
+          <div class="contact-reassurance"><span>♡</span><p><strong>Không cần chốt tour ngay.</strong><br>Cứ hỏi trước, bạn quyết định sau nhé.</p></div>
         </div>
         <form id="leadForm" class="lead-form" method="post" action="/api/leads">
           <input name="website" class="honeypot" tabindex="-1" autocomplete="off">
           <input name="selected_tour_id" type="hidden">
           <input name="selected_tour_name" type="hidden">
           <div class="form-grid">
-            <label>Họ và tên<input name="name" required maxlength="120"></label>
+            <label>Gọi bạn là gì nhỉ?<input name="name" required maxlength="120" placeholder="Tên của bạn"></label>
             <label>Email<input name="email" type="email" maxlength="160" placeholder="email@example.com"></label>
-            <label>Số điện thoại<input name="phone" required maxlength="40" placeholder="090..."></label>
+            <label>Số điện thoại<input name="phone" required maxlength="40" placeholder="Số điện thoại để tụi mình liên hệ"></label>
             <label>Zalo / WhatsApp (tùy chọn)<input name="zalo_phone" maxlength="40" placeholder="Nếu có"></label>
             <label>Điểm đến<input name="destination" required maxlength="100"></label>
             <label>Thời lượng (ngày)<input name="duration" type="number" min="1" max="60" required></label>
-            <label>Ngân sách (VND/người)<input name="budget" type="number" min="0" required></label>
+            <label>Ngân sách dự kiến/người (đồng)<input name="budget" type="number" min="0" required><small id="budgetPreview" class="field-hint">Ví dụ: 2,000,000 đồng/người.</small></label>
             <label>Số người<input name="party_size" type="number" min="1" max="30" required value="2"></label>
             <label>Ngày dự kiến<input name="travel_date" type="date"></label>
             <label>Tour quan tâm<input id="tourName" readonly placeholder="Chưa chọn tour"></label>
           </div>
           <fieldset><legend>Sở thích</legend><div id="leadInterests" class="chips"></div></fieldset>
-          <label>Ghi chú<textarea name="note" maxlength="1000" rows="3" placeholder="Điều bạn muốn VietJourney lưu ý"></textarea></label>
+          <label>Lời nhắn cho tụi mình<textarea name="note" maxlength="1000" rows="3" placeholder="Ví dụ: Mình đi cùng gia đình và thích gần biển..."></textarea></label>
           <label class="consent"><input name="consent_to_contact" type="checkbox" value="true" required> Tôi đồng ý để VietJourney liên hệ tư vấn về yêu cầu này.</label>
           <button class="button coral" type="submit">Gửi yêu cầu tư vấn</button>
           <p class="form-message" aria-live="polite"></p>
         </form>
       </section>
       <section id="about" class="about section">
-        <p class="eyebrow">VỀ VIETJOURNEY</p>
-        <h2>Chuyến đi đẹp nhất là chuyến đi mang dấu ấn của bạn.</h2>
-        <p>VietJourney kết hợp sự am hiểu địa phương với đội ngũ tư vấn tận tâm để giúp việc lên kế hoạch trở nên nhẹ nhàng, rõ ràng và truyền cảm hứng.</p>
+        <p class="eyebrow">BẠN CÓ THỂ ĐANG THẮC MẮC</p>
+        <h2>Một vài điều nhỏ, để bạn yên tâm hơn.</h2>
+        <div class="faq-list">
+          <details><summary>Giá tour hiển thị đã bao gồm gì?</summary><p>Thông tin dịch vụ đi kèm được ghi trong chi tiết từng tour. Nếu chưa rõ phần nào, hãy gửi câu hỏi để đội ngũ tư vấn xác nhận giúp bạn.</p></details>
+          <details><summary>Mình chưa biết chính xác ngày đi thì sao?</summary><p>Không sao cả. Bạn có thể để trống ngày dự kiến trong form và trao đổi thời gian phù hợp sau.</p></details>
+          <details><summary>Gửi yêu cầu có bắt buộc phải đặt tour không?</summary><p>Không. Gửi yêu cầu chỉ giúp VietJourney hiểu nhu cầu và tư vấn; bạn tự quyết định có đặt tour hay không.</p></details>
+        </div>
       </section>
     </main>
     <footer>
@@ -102,8 +147,49 @@
         <a href="#contact">Tư vấn chuyến đi</a>
         <a href="docs/README.md">Chính sách bảo mật</a>
       </div>
-      <small>© 2026 VietJourney. All rights reserved.</small>
+      <small>© 2026 VietJourney. Cùng bạn đi khắp Việt Nam.</small>
     </footer>
+    <dialog id="tourDialog" class="tour-dialog" aria-labelledby="dialogTitle">
+      <form method="dialog"><button class="dialog-close" aria-label="Đóng chi tiết tour">×</button></form>
+      <img id="dialogImage" alt="">
+      <div class="dialog-content">
+        <p id="dialogMeta" class="tour-meta"></p>
+        <h2 id="dialogTitle"></h2>
+        <p id="dialogPrice" class="price"></p>
+        <p id="dialogOverview" class="dialog-overview"></p>
+        <div><h3>Lịch trình tham khảo</h3><div id="dialogItinerary" class="dialog-itinerary"></div></div>
+        <div><h3>Điểm nổi bật</h3><ul id="dialogHighlights"></ul></div>
+        <div><h3>Dịch vụ gồm</h3><ul id="dialogServices"></ul></div>
+        <p class="dialog-note">Giá và lịch trình có thể thay đổi theo ngày đi, tình trạng dịch vụ và nhu cầu thực tế. Tụi mình sẽ xác nhận lại trước khi bạn đặt.</p>
+        <button id="dialogChoose" class="button teal" type="button">Nhờ tư vấn tour này</button>
+      </div>
+    </dialog>
+    <aside class="chat-widget" aria-label="Trợ lý VietJourney">
+      <section id="chatPanel" class="chat-panel" aria-label="Khung trò chuyện" hidden>
+        <div class="chat-header">
+          <div class="chat-avatar" aria-hidden="true">V</div>
+          <div><strong>Trợ lý chuyến đi</strong><span><i></i> Gợi ý nhanh từ tour có sẵn</span></div>
+          <button id="chatClose" class="chat-close" type="button" aria-label="Đóng trò chuyện">×</button>
+        </div>
+        <div id="chatMessages" class="chat-messages" aria-live="polite">
+          <div class="chat-bubble bot">Chào bạn 👋 Mình có thể giúp bạn khám phá các tour đang có. Bạn thích biển, núi hay ẩm thực nhỉ?</div>
+          <div class="chat-suggestions">
+            <button type="button" data-chat-prompt="Mình thích biển">🏖️ Đi biển</button>
+            <button type="button" data-chat-prompt="Mình thích thiên nhiên và trekking">🌿 Thiên nhiên</button>
+            <button type="button" data-chat-prompt="Mình muốn được tư vấn">💬 Nhờ tư vấn</button>
+          </div>
+        </div>
+        <form id="chatForm" class="chat-composer">
+          <label class="sr-only" for="chatInput">Tin nhắn</label>
+          <input id="chatInput" maxlength="300" placeholder="Nhắn điều bạn đang tìm..." autocomplete="off">
+          <button type="submit" aria-label="Gửi tin nhắn">➤</button>
+        </form>
+        <p class="chat-footnote">Trợ lý AI đang được chuẩn bị. Tin nhắn chưa được gửi ra ngoài.</p>
+      </section>
+      <button id="chatToggle" class="chat-toggle" type="button" aria-label="Mở trợ lý chuyến đi" aria-expanded="false" aria-controls="chatPanel">
+        <span class="chat-toggle-icon" aria-hidden="true">✦</span><span>Hỏi tụi mình nhé</span><span class="chat-online" aria-hidden="true"></span>
+      </button>
+    </aside>
     <script type="module" src="app.js"></script>
   </body>
 </html>
