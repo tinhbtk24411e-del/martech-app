@@ -1,6 +1,6 @@
 # API
 
-`POST /api/chat` nhận `destination`, `duration`, `budget`, `party_size`, `travel_date?`, `interests?`. API trả `itinerary`, `matchedTours`, `advice`. Cần `GEMINI_API_KEY`.
+`POST /api/aichat` nhận `message` (bắt buộc), `history` (tối đa 10 lượt gần nhất, mỗi lượt có `role: "user" | "model"` và `text`), và `customer` tùy chọn gồm `destination`, `duration`, `budget`, `party_size`, `travel_date`, `interests`. API trả `{ "success": true, "reply": "..." }`. Cần `GEMINI_API_KEY`; lịch sử và ngữ cảnh khách hàng được giới hạn/làm sạch phía server.
 
 `POST /api/leads` nhận các trường biểu mẫu lead, header `Idempotency-Key` (UUID), và các tham số marketing `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` khi có. Bên cạnh đó, hỗ trợ các trường marketing/CRM mới: `email`, `phone`, `zalo_phone`, `source`, `lead_score`, `lead_level`, `voucher_code`, `voucher_status`, `voucher_channel`. `consent_to_contact` bắt buộc là `true`; tour được xác thực lại trên server. Response thành công: `lead_id` và `notification_status`.
 
@@ -34,10 +34,10 @@ Ví dụ payload lead hoàn chỉnh:
 Ví dụ local:
 
 ```bash
-curl -X POST http://localhost:3000/api/chat -H "Content-Type: application/json" -d "{\"destination\":\"Đà Nẵng\",\"duration\":3,\"budget\":5000000,\"party_size\":2,\"interests\":[\"Ẩm thực\"]}"
+curl -X POST http://localhost:3000/api/aichat -H "Content-Type: application/json" -d "{\"message\":\"Mình muốn đi biển cuối tuần\",\"customer\":{\"destination\":\"Đà Nẵng\",\"party_size\":2,\"interests\":[\"Ẩm thực\"]}}"
 ```
 
-Không gửi PII vào `/api/chat`. Lỗi API trả thông báo an toàn, không có stack trace.
+Không gửi PII vào `/api/aichat`. API không bịa giá hoặc tình trạng tour; cần xác nhận với VietJourney nếu chưa có dữ liệu. Lỗi API trả thông báo an toàn, không có stack trace.
 
 ## UTM tracking và CRM
 
