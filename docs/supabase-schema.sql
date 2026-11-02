@@ -38,6 +38,7 @@ create table if not exists public.leads (
 );
 
 alter table public.leads
+  add column if not exists request_id text,
   add column if not exists email text,
   add column if not exists phone text,
   add column if not exists zalo_phone text,
@@ -56,6 +57,15 @@ alter table public.leads
   add column if not exists utm_campaign text,
   add column if not exists utm_content text,
   add column if not exists utm_term text;
+
+update public.leads
+set request_id = gen_random_uuid()::text
+where request_id is null;
+
+alter table public.leads
+  alter column request_id set not null;
+
+create unique index if not exists leads_request_id_key on public.leads (request_id);
 
 create index if not exists leads_created_at_idx on public.leads (created_at desc);
 create index if not exists leads_status_idx on public.leads (lead_status, notification_status);
