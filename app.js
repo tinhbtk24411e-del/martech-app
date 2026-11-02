@@ -3,6 +3,8 @@ const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'ut
 let tours = [];
 let savedTours = [];
 let showSavedTours = false;
+let chatConversation = [];
+let chatRequestPending = false;
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const SAVED_TOURS_KEY = 'vietjourney_saved_tours';
@@ -409,70 +411,93 @@ function normalizedText(text) {
   return text.toLocaleLowerCase('vi').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
 }
 
-function chatRecommendations(query) {
-  const normalized = normalizedText(query);
-  const destinations = tours.filter((tour) => normalized.includes(normalizedText(tour.destination)));
-  if (destinations.length) return destinations.slice(0, 3);
+function chatCustomerContext() {
+  const form = $('#leadForm');
+  const fieldValue = (name) => {
+    const field = form.elements.namedItem(name);
+    return sanitizeText(field?.value || '', 100);
+  };
 
-  const experienceAliases = [
-    { terms: ['bien', 'dao'], types: [], highlights: ['bien', 'dao', 'island'] },
-    { terms: ['nghi duong', 'relax'], types: ['nghi duong'], highlights: [] },
-    { terms: ['trekking', 'leo nui', 'di bo', 'sapa', 'ha giang'], types: ['trekking'], highlights: ['nui', 'deo', 'fansipan'] },
-    { terms: ['thien nhien', 'cay xanh', 'canh dep'], types: ['thien nhien'], highlights: ['thien nhien'] },
-    { terms: ['am thuc', 'mon ngon', 'do an'], types: ['am thuc'], highlights: ['am thuc', 'mon an'] },
-    { terms: ['van hoa', 'di tich', 'lich su'], types: ['van hoa'], highlights: ['di tich', 'lang'] },
-  ];
-  const intent = experienceAliases.find(({ terms }) => terms.some((term) => normalized.includes(term)));
-  if (!intent) return [];
-
-  return tours.filter((tour) => {
-    const searchable = normalizedText([
-      ...(tour.experience_type || []),
-      ...(tour.highlights || []),
-      tour.name,
-    ].join(' '));
-    return intent.types.some((type) => searchable.includes(type)) ||
-      intent.highlights.some((term) => searchable.includes(term));
-  }).slice(0, 3);
+  return {
+    destination: fieldValue('destination'),
+    duration: fieldValue('duration'),
+    budget: fieldValue('budget'),
+    budget_basis: fieldValue('budget') ? 'per_person' : '',
+    party_size: fieldValue('party_size'),
+    travel_date: fieldValue('travel_date'),
+    interests: values('#leadInterests'),
+  };
 }
 
-function addChatTourSuggestions(items) {
-  const container = document.createElement('div');
-  container.className = 'chat-suggestions';
-  items.forEach((tour) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'chat-tour-link';
-    button.textContent = `${tour.destination} · ${money(tour.price_per_person)}`;
-    button.onclick = () => showDetails(tour);
-    container.append(button);
-  });
-  $('#chatMessages').append(container);
+async function sendChatMessage(query) {
+  if (chatRequestPending) return;
+
+  appendChatMessage(query, 'user');
+  const loadingMessage = document.createElement('div');
+  loadingMessage.className = 'chat-bubble bot';
+  loadingMessage.textContent = 'Đang nghĩ câu trả lời…';
+  loadingMessage.setAttribute('aria-label', 'Đang chờ trợ lý AI');
+  $('#chatMessages').append(loadingMessage);
   $('#chatMessages').scrollTop = $('#chatMessages').scrollHeight;
-}
 
-function respondToChat(query) {
-  const normalized = normalizedText(query);
-  if (['tu van', 'lien he', 'dat tour', 'nhan vien', 'tro chuyen'].some((term) => normalized.includes(term))) {
-    appendChatMessage('Được chứ! Bạn kể nhu cầu trong form, đội ngũ VietJourney sẽ liên hệ hỗ trợ. AI chat đang được hoàn thiện nên mình chưa thể tư vấn tự động nhé.');
-    const link = document.createElement('a');
-    link.className = 'chat-tour-link';
-    link.href = '#contact';
-    link.textContent = 'Gửi lời nhắn cho tụi mình →';
-    link.addEventListener('click', () => setTimeout(() => $('#leadForm [name="name"]').focus(), 100));
-    $('#chatMessages').append(link);
-    $('#chatMessages').scrollTop = $('#chatMessages').scrollHeight;
-    return;
+  chatRequestPending = true;
+  const input = $('#chatInput');
+  const sendButton = $('#chatForm button[type="submit"]');
+  $('#chatMessages').setAttribute('aria-busy', 'true');
+  input.disabled = true;
+  sendButton.disabled = true;
+  $$('[data-chat-prompt]').forEach((button) => { button.disabled = true; });
+
+  try {
+    const response = await fetch('/api/aichat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: query,
+        history: chatConversation.slice(-10),
+        customer: chatCustomerContext(),
+      }),
+    });
+
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error('AI trả về phản hồi không hợp lệ. Bạn thử lại nhé.');
+    }
+
+    if (!data || typeof data !== 'object') {
+      throw new Error('AI trả về phản hồi không hợp lệ. Bạn thử lại nhé.');
+    }
+
+    if (!response.ok) {
+      throw new Error(data.error || 'AI chưa thể trả lời lúc này. Bạn thử lại nhé.');
+    }
+
+    if (typeof data.reply !== 'string' || !data.reply.trim()) {
+      throw new Error('AI chưa tạo được câu trả lời. Bạn thử lại nhé.');
+    }
+
+    chatConversation.push(
+      { role: 'user', text: query },
+      { role: 'assistant', text: data.reply.trim() },
+    );
+    chatConversation = chatConversation.slice(-10);
+    appendChatMessage(data.reply.trim());
+  } catch (error) {
+    const message = error instanceof TypeError
+      ? 'Không kết nối được với AI. Bạn thử lại sau nhé.'
+      : error.message || 'Không kết nối được với AI. Bạn thử lại sau nhé.';
+    appendChatMessage(message);
+  } finally {
+    loadingMessage.remove();
+    chatRequestPending = false;
+    $('#chatMessages').setAttribute('aria-busy', 'false');
+    input.disabled = false;
+    sendButton.disabled = false;
+    $$('[data-chat-prompt]').forEach((button) => { button.disabled = false; });
+    input.focus();
   }
-
-  const recommendations = chatRecommendations(query);
-  if (recommendations.length) {
-    appendChatMessage('Mình tìm thấy vài hành trình đang có, bạn xem thử nhé:');
-    addChatTourSuggestions(recommendations);
-    return;
-  }
-
-  appendChatMessage('Mình chưa tìm thấy tour khớp với từ khóa này. Bạn thử tên điểm đến, “đi biển”, “thiên nhiên” hoặc nhắn tụi mình để được tư vấn nhé.');
 }
 
 $('#chatToggle').addEventListener('click', (event) => {
@@ -492,17 +517,15 @@ $('#chatForm').addEventListener('submit', (event) => {
   event.preventDefault();
   const input = $('#chatInput');
   const query = input.value.trim();
-  if (!query) return;
-  appendChatMessage(query, 'user');
+  if (!query || chatRequestPending) return;
   input.value = '';
-  respondToChat(query);
+  sendChatMessage(query);
 });
 
 $$('[data-chat-prompt]').forEach((button) => {
   button.addEventListener('click', () => {
     const query = button.dataset.chatPrompt;
-    appendChatMessage(query, 'user');
-    respondToChat(query);
+    if (!chatRequestPending) sendChatMessage(query);
   });
 });
 
