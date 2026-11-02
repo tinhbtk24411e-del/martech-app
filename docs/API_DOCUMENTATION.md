@@ -1,6 +1,6 @@
 # API
 
-`POST /api/aichat` nhận `message` (bắt buộc), `history` (tối đa 10 lượt gần nhất, mỗi lượt có `role: "user" | "model"` và `text`), và `customer` tùy chọn gồm `destination`, `duration`, `budget`, `party_size`, `travel_date`, `interests`. API trả `{ "success": true, "reply": "..." }`. Cần `GEMINI_API_KEY`; lịch sử và ngữ cảnh khách hàng được giới hạn/làm sạch phía server.
+`POST /api/aichat` nhận `message` (bắt buộc), `history` (tối đa 10 lượt gần nhất, mỗi lượt có `role: "user" | "assistant" | "model"` và `text`), và `customer` tùy chọn gồm `destination`, `duration`, `budget`, `party_size`, `travel_date`, `interests`. API trả `{ "success": true, "reply": "..." }`. Cần cấu hình `OPENROUTER_API_KEY` trong môi trường server; lịch sử và ngữ cảnh khách hàng được giới hạn/làm sạch phía server.
 
 `POST /api/leads` nhận các trường biểu mẫu lead, header `Idempotency-Key` (UUID), và các tham số marketing `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` khi có. Bên cạnh đó, hỗ trợ các trường marketing/CRM mới: `email`, `phone`, `zalo_phone`, `source`, `lead_score`, `lead_level`, `voucher_code`, `voucher_status`, `voucher_channel`. `consent_to_contact` bắt buộc là `true`; tour được xác thực lại trên server. Response thành công: `lead_id` và `notification_status`.
 
