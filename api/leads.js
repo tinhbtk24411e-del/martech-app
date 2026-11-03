@@ -4,6 +4,7 @@ import { scoreLead, understandCustomer } from './_scoring.js';
 export const config = { api: { bodyParser: { sizeLimit: '16kb' } } };
 
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+const SCORING_COLUMNS = ['score_signals', 'customer_segment', 'customer_traits'];
 
 const supabase = async (endpoint, options = {}) => {
   const base = process.env.SUPABASE_URL;
@@ -166,16 +167,34 @@ export default async function handler(req, res) {
     };
 
     failure.stage = 'insert_lead';
-    const saveResponse = await supabase('leads', {
+    const saveOptions = {
       method: 'POST',
       headers: { Prefer: 'return=representation' },
       body: JSON.stringify(row),
-    });
+    };
+    let saveResponse = await supabase('leads', saveOptions);
 
     if (!saveResponse.ok) {
       failure.status = saveResponse.status;
       failure.databaseCode = await supabaseErrorCode(saveResponse);
-      throw new Error('Supabase lead insert failed');
+
+      if (['PGRST204', '42703'].includes(failure.databaseCode)) {
+        console.error('[api/leads] Scoring columns unavailable; retrying without optional scoring fields', {
+          databaseCode: failure.databaseCode,
+        });
+        const compatibleRow = { ...row };
+        for (const column of SCORING_COLUMNS) delete compatibleRow[column];
+        saveResponse = await supabase('leads', {
+          ...saveOptions,
+          body: JSON.stringify(compatibleRow),
+        });
+      }
+
+      if (!saveResponse.ok) {
+        failure.status = saveResponse.status;
+        failure.databaseCode = await supabaseErrorCode(saveResponse);
+        throw new Error('Supabase lead insert failed');
+      }
     }
 
     failure.stage = 'read_insert_result';
