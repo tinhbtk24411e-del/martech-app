@@ -1181,6 +1181,18 @@ body:has(.planner-app) { background: #f2f7fd; }
 .planner-toolbar { position: sticky; top: 74px; z-index: 20; display: flex; min-height: 54px; align-items: center; justify-content: space-between; gap: 16px; padding: 8px clamp(16px, 2vw, 30px); background: rgba(255,255,255,.97); border-bottom: 1px solid #e9edf2; }
 .planner-trip-meta, .planner-toolbar-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; }
 .planner-trip-meta > span { display: flex; align-items: center; gap: 8px; color: #748093; font-size: 0.8rem; }
+.planner-trip-meta > .planner-date-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 9px; border: 0; border-radius: 8px; background: transparent; color: #748093; font-size: 0.8rem; cursor: pointer; }
+.planner-date-toggle:hover, .planner-date-toggle[aria-expanded="true"] { background: #f0f6ff; }
+.planner-date-toggle strong { color: #27394f; font-weight: 600; }
+.planner-date-toggle small { color: #8c97a6; }
+.planner-date-picker { position: absolute; z-index: 25; top: calc(100% + 6px); left: clamp(12px, 2vw, 30px); width: min(460px, calc(100vw - 32px)); padding: 16px; border: 1px solid #e3eaf3; border-radius: 13px; background: #fff; box-shadow: 0 16px 38px rgba(24, 43, 68, .18); }
+.date-picker-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.date-picker-fields label { display: grid; gap: 5px; color: #526278; font-size: .72rem; font-weight: 600; }
+.date-picker-fields input { min-width: 0; width: 100%; height: 38px; padding: 0 9px; border: 1px solid #dfe6ef; border-radius: 7px; background: #fff; font: inherit; color: #26384d; }
+.date-picker-error:not(:empty) { margin: 10px 0 0; color: #b3261e; font-size: .7rem; }
+.date-picker-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.date-picker-actions > span { color: #78869a; font-size: .64rem; }
+.date-picker-actions button { min-height: 36px; padding: 0 12px; border: 0; border-radius: 8px; background: #0752cb; color: #fff; font-size: .72rem; font-weight: 700; cursor: pointer; }
 .planner-trip-meta strong { color: #27394f; font-weight: 600; }
 .planner-trip-meta small { color: #8c97a6; }
 .planner-toolbar-actions { justify-content: flex-end; color: #667487; font-size: 0.77rem; }
@@ -1207,7 +1219,7 @@ body:has(.planner-app) { background: #f2f7fd; }
 .planner-section-heading h2 > span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: #eaf3ff; color: #0752cb; }
 .planner-section-heading > a { color: #4779bb; font-size: 0.69rem; }
 .day-summary { margin-top: 14px; padding: 12px; border: 1px solid #e7edf4; border-radius: 12px; }
-.day-tabs { display: flex; gap: 8px; }
+.day-tabs { display: flex; gap: 8px; max-width: 100%; overflow-x: auto; }
 .day-tabs button { min-height: 34px; padding: 0 14px; border: 0; border-radius: 20px; background: #f3f5f7; color: #68768a; font-size: 0.72rem; cursor: pointer; }
 .day-tabs button.active { border: 1px solid #377be1; background: #f1f7ff; color: #0752cb; }
 .day-summary-meta { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.72rem; }
@@ -1298,6 +1310,10 @@ body:has(.planner-app) { background: #f2f7fd; }
   .planner-toolbar-actions { justify-content: space-between; width: 100%; }
   .planner-trip-meta { gap: 10px; }
   .planner-trip-meta > span { font-size: 0.68rem; }
+  .planner-trip-meta > .planner-date-toggle { min-height: 32px; padding: 0; font-size: .67rem; }
+  .planner-date-picker { left: 8px; padding: 12px; }
+  .date-picker-fields { gap: 9px; }
+  .date-picker-actions { align-items: flex-start; flex-direction: column; }
   .planner-tabs { top: 128px; gap: 10px; padding: 0 10px; }
   .planner-tabs .planner-booking { display: none; }
   .planner-destination { align-items: flex-start; margin: 8px; padding: 9px; }
