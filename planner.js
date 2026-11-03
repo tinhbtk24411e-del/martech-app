@@ -20,30 +20,13 @@ const plannerState = {
 const initialEndDate = new Date(`${plannerState.startDate}T12:00:00`);
 initialEndDate.setDate(initialEndDate.getDate() + 2);
 plannerState.endDate = toLocalIsoDate(initialEndDate);
-const plannerSchedule = [
-  [
-    { time: '06:20', activity: 'Khởi hành từ sân bay Tân Sơn Nhất', location: 'TP. Hồ Chí Minh', duration: 'Theo vé máy bay', ticket: 0 },
-    { time: '08:50', activity: 'Đến sân bay Liên Khương', location: 'Đức Trọng, Lâm Đồng', duration: 'Khoảng 1 giờ 40 phút di chuyển', ticket: 0 },
-    { time: '10:30', activity: 'Nhận phòng / gửi hành lý', location: 'Khách sạn trung tâm Đà Lạt', duration: 'Khoảng 30 phút', ticket: 0 },
-    { time: '14:00', activity: 'Dạo quanh hồ Xuân Hương', location: 'Trung tâm Đà Lạt', duration: 'Khoảng 2 giờ', ticket: 0 },
-  ],
-  [
-    { time: '08:00', activity: 'Tham quan thác Datanla', location: 'Quốc lộ 20, Đà Lạt', duration: 'Khoảng 2 giờ', ticket: 100000 },
-    { time: '11:30', activity: 'Ăn trưa địa phương', location: 'Khu vực trung tâm', duration: 'Khoảng 1 giờ', ticket: 0 },
-    { time: '14:00', activity: 'Tham quan đồi chè Cầu Đất', location: 'Xuân Trường, Đà Lạt', duration: 'Khoảng 3 giờ', ticket: 0 },
-  ],
-  [
-    { time: '08:00', activity: 'Dạo chợ Đà Lạt, ăn sáng', location: 'Nguyễn Thị Minh Khai, Đà Lạt', duration: 'Khoảng 1 giờ', ticket: 0 },
-    { time: '10:00', activity: 'Tham quan vườn hoa thành phố', location: 'Đường Trần Quốc Toản, Đà Lạt', duration: 'Khoảng 2 giờ', ticket: 0 },
-    { time: '14:30', activity: 'Di chuyển ra sân bay Liên Khương', location: 'Đức Trọng, Lâm Đồng', duration: 'Dự phòng khoảng 1 giờ 40 phút', ticket: 0 },
-  ],
-];
 const currencyFormatter = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
 let plannerWeather = [];
 let plannerWeatherError = '';
 let selectedPlannerDay = 0;
 let chatConversation = [];
 let chatRequestPending = false;
+let currentPlan = null;
 
 function formatPlannerMoney(amount) {
   return `${currencyFormatter.format(amount)}đ`;
@@ -80,11 +63,11 @@ function updatePlannerDateLabels() {
   renderPlannerDayTabs(dates.length);
   const startField = $('#plannerStartDate');
   startField.min = todayIso;
-  const guests = Number($('#estimateGuests').value) || 1;
-  const rooms = Number($('#estimateRooms').value) || 1;
+  const guests = Number($('#plannerGuestCount').value) || 1;
+  const rooms = Math.ceil(guests / 2);
   $('#plannerGuestLabel').textContent = `${guests} khách`;
   $('#plannerRoomLabel').textContent = `${rooms} ${rooms === 1 ? 'phòng' : 'phòng'}`;
-  $('#estimateNightLabel').textContent = `${nights} đêm`;
+  if (currentPlan) $('#plannerDestinationDates').textContent = `${start} – ${end} · ${dates.length} ngày ${nights} đêm`;
 }
 
 function renderPlannerDayTabs(dayCount) {
@@ -126,6 +109,10 @@ $('#plannerStartDate').addEventListener('change', () => {
 
 $('#plannerDatePicker').addEventListener('submit', (event) => {
   event.preventDefault();
+  if (chatRequestPending) {
+    $('#plannerDateError').textContent = 'Vui lòng đợi AI tạo lịch trình xong rồi cập nhật thông tin.';
+    return;
+  }
   const startDate = $('#plannerStartDate').value;
   const endDate = $('#plannerEndDate').value;
   const dayCount = Math.round((new Date(`${endDate}T12:00:00`) - new Date(`${startDate}T12:00:00`)) / 86400000) + 1;
@@ -145,57 +132,70 @@ $('#plannerDatePicker').addEventListener('submit', (event) => {
     $('#plannerDateError').textContent = 'Giờ kết thúc phải sau giờ khởi hành trong chuyến đi một ngày.';
     return;
   }
+  if (!$('#plannerGuestCount').validity.valid) {
+    $('#plannerDateError').textContent = 'Số khách phải từ 1 đến 30.';
+    return;
+  }
   plannerState.startDate = startDate;
   plannerState.endDate = endDate;
   plannerState.startTime = $('#plannerStartTime').value;
   plannerState.endTime = $('#plannerEndTime').value;
+  currentPlan = null;
+  plannerWeather = [];
+  $('#plannerResults').hidden = true;
+  $('#plannerEmptyState').hidden = false;
+  $('#toolbarCost').textContent = 'Chưa tạo lịch trình';
+  $('#shareItinerary').disabled = true;
   $('#plannerDateError').textContent = '';
   selectedPlannerDay = Math.min(selectedPlannerDay, dayCount - 1);
   updatePlannerDateLabels();
-  updatePlannerCost();
-  renderPlannerSchedule(selectedPlannerDay);
-  loadPlannerWeather();
   openPlannerDatePicker(false);
 });
 
 function renderPlannerSchedule(dayIndex) {
   selectedPlannerDay = dayIndex;
   const dates = dateRange();
-  const dayItems = plannerSchedule[dayIndex] || (dayIndex === dates.length - 1
-    ? [{ time: plannerState.endTime, activity: 'Kết thúc chuyến đi / di chuyển ra sân bay', location: 'Đà Lạt', duration: 'Kiểm tra giờ và phương tiện trước chuyến đi', ticket: 0 }]
-    : []);
+  const dayItems = currentPlan?.days?.[dayIndex]?.activities || [];
   const rows = dayItems.map((item, index) => {
     const row = document.createElement('tr');
-    const time = dayIndex === 0 && index === 0
-      ? plannerState.startTime
-      : dayIndex === dates.length - 1 && index === dayItems.length - 1
-        ? plannerState.endTime
-        : item.time;
-    [time, `${item.activity} · ${item.location}`, item.duration, item.ticket ? `~${formatPlannerMoney(item.ticket)}` : 'Chưa gồm vé'].forEach((value) => {
+    [item.time, `${item.name} · ${item.location}`, item.duration, item.ticket_per_person ? `~${formatPlannerMoney(item.ticket_per_person)}` : 'Miễn phí / không gồm vé'].forEach((value) => {
       const cell = document.createElement('td');
       cell.textContent = value;
       row.append(cell);
     });
     return row;
   });
-  if (!rows.length) {
-    const row = document.createElement('tr');
-    const cell = document.createElement('td');
-    cell.colSpan = 4;
-    cell.textContent = 'Chưa có hoạt động mẫu cho ngày này. Hãy hỏi trợ lý AI để gợi ý lịch trình phù hợp.';
-    row.append(cell);
-    rows.push(row);
-  }
   $('#plannerScheduleRows').replaceChildren(...rows);
+  const cards = dayItems.map((item, index) => {
+    const card = document.createElement('article');
+    card.className = 'activity-card generated';
+    const time = document.createElement('time');
+    time.textContent = item.time;
+    const number = document.createElement('span');
+    number.className = 'activity-number';
+    number.textContent = String(index + 1);
+    const details = document.createElement('div');
+    const name = document.createElement('strong');
+    name.textContent = item.name;
+    const location = document.createElement('small');
+    location.textContent = item.location;
+    const duration = document.createElement('small');
+    duration.textContent = item.duration;
+    const cost = document.createElement('p');
+    cost.textContent = item.ticket_per_person
+      ? `Vé tham khảo: ~${formatPlannerMoney(item.ticket_per_person)}/người`
+      : 'Không có vé tham quan tính riêng';
+    details.append(name, location, duration, cost);
+    card.append(time, number, details);
+    return card;
+  });
+  $('#plannerActivities').replaceChildren(...cards);
   $('[data-day-date]').textContent = displayDate(dates[dayIndex]);
-  $('[data-day-count]').textContent = `${dayItems.length} hoạt động`;
-  const dayTicketTotal = dayItems.reduce((total, item) => total + item.ticket, 0);
+  $('#plannerDayCount').textContent = `${dayItems.length} hoạt động`;
+  const dayTicketTotal = dayItems.reduce((total, item) => total + item.ticket_per_person, 0);
   $('#dayTicketTotal').textContent = dayTicketTotal
     ? `Vé tham quan ngày này: ~${formatPlannerMoney(dayTicketTotal)}/người`
-    : 'Vé tham quan: chưa gồm vé';
-  $$('[data-day-panel]').forEach((panel) => { panel.hidden = true; });
-  const activityPanel = $(`[data-day-panel="${Math.min(dayIndex, 2)}"]`);
-  if (activityPanel) activityPanel.hidden = dayIndex >= plannerSchedule.length;
+    : 'Vé tham quan ngày này: miễn phí / chưa gồm vé';
   $('#plannerDayTabs').querySelectorAll('[data-planner-day]').forEach((button) => {
     const active = Number(button.dataset.plannerDay) === dayIndex;
     button.classList.toggle('active', active);
@@ -233,18 +233,38 @@ function renderPlannerWeather(dayIndex) {
 }
 
 async function loadPlannerWeather() {
-  const url = new URL('https://api.open-meteo.com/v1/forecast');
-  url.search = new URLSearchParams({
-    latitude: '11.9404',
-    longitude: '108.4583',
-    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
-    timezone: 'Asia/Ho_Chi_Minh',
-    forecast_days: '16',
-  }).toString();
+  if (!currentPlan) return;
+  const destination = currentPlan.destination;
+  const status = $('#weatherStatus');
+  status.textContent = 'Đang tìm dự báo thời tiết cho điểm đến…';
   try {
+    const geocodingUrl = new URL('https://geocoding-api.open-meteo.com/v1/search');
+    geocodingUrl.search = new URLSearchParams({
+      name: destination,
+      count: '1',
+      language: 'vi',
+      format: 'json',
+    }).toString();
+    const geocodingResponse = await fetch(geocodingUrl);
+    if (!geocodingResponse.ok) throw new Error(`Dịch vụ định vị phản hồi mã ${geocodingResponse.status}.`);
+    const geocoding = await geocodingResponse.json();
+    if (currentPlan?.destination !== destination) return;
+    const result = geocoding?.results?.[0];
+    if (!Number.isFinite(result?.latitude) || !Number.isFinite(result?.longitude)) {
+      throw new Error('Không tìm thấy vị trí thời tiết cho điểm đến này.');
+    }
+    const url = new URL('https://api.open-meteo.com/v1/forecast');
+    url.search = new URLSearchParams({
+      latitude: String(result.latitude),
+      longitude: String(result.longitude),
+      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
+      timezone: 'auto',
+      forecast_days: '16',
+    }).toString();
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Dịch vụ thời tiết phản hồi mã ${response.status}.`);
     const data = await response.json();
+    if (currentPlan?.destination !== destination) return;
     const daily = data?.daily;
     if (!Array.isArray(daily?.time) || !Array.isArray(daily?.weather_code) ||
         !Array.isArray(daily?.temperature_2m_max) || !Array.isArray(daily?.temperature_2m_min) ||
@@ -261,38 +281,93 @@ async function loadPlannerWeather() {
     plannerWeatherError = '';
     renderPlannerWeather(selectedPlannerDay);
   } catch (error) {
+    if (currentPlan?.destination !== destination) return;
     plannerWeatherError = error instanceof Error ? error.message : 'Lỗi không xác định khi tải thời tiết.';
     renderPlannerWeather(selectedPlannerDay);
   }
 }
 
-function updatePlannerCost() {
-  const fields = ['estimateGuests', 'estimateRooms', 'estimateFlight', 'estimateHotel', 'estimateTransport', 'estimateMeals', 'estimateTickets'];
-  const values = fields.map((id) => {
-    const field = $(`#${id}`);
-    const value = Number(field.value);
-    const valid = field.value.trim() !== '' && Number.isFinite(value) && value >= Number(field.min || 0) && value <= Number(field.max || Number.MAX_SAFE_INTEGER);
-    field.setAttribute('aria-invalid', String(!valid));
-    return valid ? value : null;
+function renderPlannerPlan(plan) {
+  currentPlan = plan;
+  plannerState.guests = Number($('#plannerGuestCount').value);
+  const dates = dateRange();
+  $('#plannerEmptyState').hidden = true;
+  $('#plannerResults').hidden = false;
+  $('#plannerDestinationName').textContent = plan.destination;
+  $('#plannerDestinationDates').textContent = `${displayDate(plannerState.startDate)} – ${displayDate(plannerState.endDate)} · ${dates.length} ngày ${dates.length - 1} đêm`;
+  $('#plannerDestinationSummary').textContent = plan.summary;
+  $('#plannerGuestLabel').textContent = `${plannerState.guests} khách`;
+  $('#plannerRoomLabel').textContent = `${plan.room_count} phòng`;
+  $('#estimateTotal').textContent = formatPlannerMoney(plan.costs.total);
+  $('#estimatePerGuest').textContent = formatPlannerMoney(plan.costs.per_person);
+  $('#toolbarCost').textContent = `~${formatPlannerMoney(plan.costs.per_person)}/người`;
+  $('#shareItinerary').disabled = false;
+
+  const serviceDetails = [
+    { title: 'Vé máy bay / di chuyển liên tỉnh', value: plan.services.flight, unit: `${formatPlannerMoney(plan.services.flight.price_per_person)}/khách khứ hồi`, total: plan.costs.flight },
+    { title: 'Khách sạn', value: plan.services.hotel, unit: `${formatPlannerMoney(plan.services.hotel.price_per_room_per_night)}/phòng/đêm`, total: plan.costs.hotel },
+    { title: 'Di chuyển địa phương', value: plan.services.transport, unit: `${formatPlannerMoney(plan.services.transport.price_per_person)}/khách`, total: plan.costs.transport },
+    { title: 'Ăn uống', value: plan.services.meals, unit: `${formatPlannerMoney(plan.services.meals.price_per_person)}/khách`, total: plan.costs.meals },
+    { title: 'Vé tham quan', value: { name: 'Tổng vé các hoạt động trong lịch trình' }, unit: `${formatPlannerMoney(Math.ceil(plan.costs.tickets / plannerState.guests))}/khách`, total: plan.costs.tickets },
+  ];
+  const serviceCards = serviceDetails.map((service) => {
+    const card = document.createElement('article');
+    card.className = 'service-card';
+    const details = document.createElement('div');
+    const heading = document.createElement('strong');
+    heading.textContent = service.title;
+    const provider = document.createElement('small');
+    provider.textContent = service.value.name;
+    const estimate = document.createElement('small');
+    estimate.textContent = `Đơn giá tham khảo: ${service.unit}`;
+    const total = document.createElement('b');
+    total.textContent = `Tổng khoản: ${formatPlannerMoney(service.total)}`;
+    details.append(heading, provider, estimate, total);
+    card.append(details);
+    return card;
   });
-  if (values.some((value) => value === null)) {
-    $('#estimateTotal').textContent = '—';
-    $('#estimatePerGuest').textContent = '—';
-    $('#toolbarCost').textContent = 'Chưa đủ dữ liệu';
-    $('#costCalcStatus').textContent = 'Nhập số khách, số phòng và các chi phí hợp lệ để tính dự toán.';
-    return;
-  }
-  const [guests, rooms, flight, hotel, transport, meals, tickets] = values;
-  const nights = Math.max(0, dateRange().length - 1);
-  const total = (flight + transport + meals + tickets) * guests + hotel * nights * rooms;
-  const perGuest = Math.ceil(total / guests);
-  $('#plannerGuestLabel').textContent = `${guests} khách`;
-  $('#plannerRoomLabel').textContent = `${rooms} phòng`;
-  $('#estimateNightLabel').textContent = `${nights} đêm`;
-  $('#estimateTotal').textContent = formatPlannerMoney(total);
-  $('#estimatePerGuest').textContent = formatPlannerMoney(perGuest);
-  $('#toolbarCost').textContent = `~${formatPlannerMoney(perGuest)}/người`;
-  $('#costCalcStatus').textContent = '';
+  $('#plannerServiceCards').replaceChildren(...serviceCards);
+
+  const costRows = [
+    ['Vé máy bay / di chuyển liên tỉnh', plan.costs.flight],
+    [`Khách sạn (${dates.length - 1} đêm · ${plan.room_count} phòng)`, plan.costs.hotel],
+    ['Di chuyển địa phương', plan.costs.transport],
+    ['Ăn uống', plan.costs.meals],
+    ['Vé tham quan', plan.costs.tickets],
+  ].map(([label, amount]) => {
+    const row = document.createElement('div');
+    row.className = 'planner-cost-line';
+    const name = document.createElement('span');
+    name.textContent = label;
+    const value = document.createElement('strong');
+    value.textContent = formatPlannerMoney(amount);
+    row.append(name, value);
+    return row;
+  });
+  $('#plannerCostLines').replaceChildren(...costRows);
+
+  const assumptions = document.createElement('ul');
+  assumptions.className = 'planner-assumptions';
+  plan.assumptions.forEach((text) => {
+    const item = document.createElement('li');
+    item.textContent = text;
+    assumptions.append(item);
+  });
+  $('#plannerCostLines').append(assumptions);
+
+  const mapQuery = `${plan.destination}, Vietnam`;
+  const encodedQuery = encodeURIComponent(mapQuery);
+  $('#mapSearch').value = mapQuery;
+  $('#plannerMapFrame').src = `https://maps.google.com/maps?q=${encodedQuery}&output=embed`;
+  $('#plannerGoogleMaps').href = `https://www.google.com/maps/search/?api=1&query=${encodedQuery}`;
+  $('#plannerMapLink').href = `https://www.openstreetmap.org/search?query=${encodedQuery}`;
+  $('#plannerMapFrame').title = `Bản đồ khu vực ${plan.destination}`;
+  plannerWeather = [];
+  plannerWeatherError = '';
+  selectedPlannerDay = 0;
+  renderPlannerDayTabs(dates.length);
+  renderPlannerSchedule(0);
+  loadPlannerWeather();
 }
 
 function appendChatMessage(text, sender = 'bot') {
@@ -312,16 +387,14 @@ function addConsultLink() {
   $('#chatMessages').append(link);
 }
 
-function plannerCustomerContext() {
-  const days = dateRange().length;
+function plannerTripContext() {
   return {
-    destination: $('.planner-destination h1').textContent.trim(),
-    duration: `${days} ngày ${Math.max(0, days - 1)} đêm`,
-    budget: $('#estimatePerGuest').textContent.replace(/[^\d]/g, ''),
-    budget_basis: 'per_person',
-    party_size: $('#estimateGuests').value,
-    travel_date: plannerState.startDate,
-    interests: [],
+    start_date: plannerState.startDate,
+    end_date: plannerState.endDate,
+    start_time: plannerState.startTime,
+    end_time: plannerState.endTime,
+    guests: Number($('#plannerGuestCount').value),
+    budget: $('#plannerBudget').value.trim() ? Number($('#plannerBudget').value) : null,
   };
 }
 
@@ -343,9 +416,10 @@ async function sendChatMessage(query) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        mode: 'planner',
         message: query,
         history: chatConversation.slice(-10),
-        customer: plannerCustomerContext(),
+        trip: plannerTripContext(),
       }),
     });
     let data;
@@ -356,13 +430,21 @@ async function sendChatMessage(query) {
     }
     if (!data || typeof data !== 'object') throw new Error('AI trả về phản hồi không hợp lệ. Bạn thử lại nhé.');
     if (!response.ok) throw new Error(data.error || 'AI chưa thể trả lời lúc này. Bạn thử lại nhé.');
-    if (typeof data.reply !== 'string' || !data.reply.trim()) throw new Error('AI chưa tạo được câu trả lời. Bạn thử lại nhé.');
+    if (!data.plan || typeof data.plan.destination !== 'string' ||
+        !Array.isArray(data.plan.days) || !data.plan.costs) {
+      throw new Error('AI chưa tạo được lịch trình hợp lệ. Bạn thử lại nhé.');
+    }
+    renderPlannerPlan(data.plan);
+    const budgetNote = data.plan.budget_status === 'over_budget'
+      ? ' Dự toán đang vượt ngân sách bạn đặt; xem phần giả định và chi phí để cân nhắc.'
+      : '';
+    const reply = `${data.plan.destination}: ${data.plan.summary} Dự toán khoảng ${formatPlannerMoney(data.plan.costs.per_person)}/người, ${formatPlannerMoney(data.plan.costs.total)} cho cả đoàn. Giá mô phỏng tham khảo, chưa xác nhận.${budgetNote}`;
     chatConversation.push(
       { role: 'user', text: query },
-      { role: 'assistant', text: data.reply.trim() },
+      { role: 'assistant', text: reply },
     );
     chatConversation = chatConversation.slice(-10);
-    appendChatMessage(data.reply.trim());
+    appendChatMessage(reply);
     addConsultLink();
   } catch (error) {
     const message = error instanceof TypeError
@@ -380,32 +462,27 @@ async function sendChatMessage(query) {
   }
 }
 
-$$('[data-planner-day]').forEach((button) => {
-  button.addEventListener('click', () => renderPlannerSchedule(Number(button.dataset.plannerDay)));
-});
-$$('#estimateGuests, #estimateRooms, #estimateFlight, #estimateHotel, #estimateTransport, #estimateMeals, #estimateTickets')
-  .forEach((field) => field.addEventListener('input', () => {
-    updatePlannerCost();
-    $('#plannerGuestLabel').textContent = `${$('#estimateGuests').value || 1} khách`;
-    $('#plannerRoomLabel').textContent = `${$('#estimateRooms').value || 1} phòng`;
-  }));
-
 $('#shareItinerary').addEventListener('click', async () => {
-  const shareUrl = `${window.location.origin}${window.location.pathname}#planner-itinerary`;
+  if (!currentPlan) return;
   const days = dateRange().length;
-  const shareData = { title: 'Lịch trình Đà Lạt · VietJourney', text: `Xem lịch trình Đà Lạt ${days} ngày ${Math.max(0, days - 1)} đêm.`, url: shareUrl };
+  const destination = currentPlan.destination;
+  const itinerary = currentPlan.days.map((day, index) => (
+    `Ngày ${index + 1}: ${day.activities.map((activity) => `${activity.time} ${activity.name} (${activity.location})`).join('; ')}`
+  )).join('\n');
+  const shareText = `${destination} · ${days} ngày ${Math.max(0, days - 1)} đêm\n${itinerary}\nDự toán: ${formatPlannerMoney(currentPlan.costs.per_person)}/người, ${formatPlannerMoney(currentPlan.costs.total)} cả đoàn. Giá mô phỏng tham khảo, chưa xác nhận.`;
+  const shareData = { title: `Lịch trình ${destination} · VietJourney`, text: shareText };
   const status = $('#shareStatus');
   try {
     if (navigator.share) {
       await navigator.share(shareData);
       status.textContent = 'Đã mở tùy chọn chia sẻ.';
     } else {
-      await navigator.clipboard.writeText(shareUrl);
-      status.textContent = 'Đã sao chép liên kết lịch trình.';
+      await navigator.clipboard.writeText(shareText);
+      status.textContent = 'Đã sao chép nội dung lịch trình.';
     }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') return;
-    status.textContent = 'Không thể chia sẻ tự động. Hãy sao chép địa chỉ trang để gửi.';
+    status.textContent = 'Không thể chia sẻ tự động. Hãy sao chép nội dung lịch trình.';
   }
 });
 
@@ -432,7 +509,9 @@ $('#mapSearch').addEventListener('keydown', (event) => {
 });
 $('#mapFilter').addEventListener('change', (event) => {
   const category = event.currentTarget.value;
-  $('#mapSearch').value = category === 'Tất cả' ? 'Đà Lạt' : `${category} ở Đà Lạt`;
+  const destination = currentPlan?.destination;
+  if (!destination) return;
+  $('#mapSearch').value = category === 'Tất cả' ? destination : `${category} ở ${destination}`;
   searchPlannerMap();
 });
 
@@ -483,6 +562,3 @@ $$('nav a').forEach((link) => {
 });
 
 updatePlannerDateLabels();
-renderPlannerSchedule(0);
-updatePlannerCost();
-loadPlannerWeather();

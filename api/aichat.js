@@ -1,5 +1,6 @@
 
 import { tours } from './_shared.js';
+import { normalizePlannerPlan, parsePlannerContent } from './_planner.js';
 
 export const config = {
   api: {
@@ -63,6 +64,99 @@ function customerContext(value) {
   };
 }
 
+function plannerTrip(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const startDate = clean(value.start_date, 10);
+  const endDate = clean(value.end_date, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return null;
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  const days = Math.round((end - start) / 86400000) + 1;
+  const guests = Number(value.guests);
+  const startTime = clean(value.start_time, 5);
+  const endTime = clean(value.end_time, 5);
+  const hasBudget = value.budget !== null && value.budget !== undefined && String(value.budget).trim() !== '';
+  const budget = hasBudget ? Number(value.budget) : null;
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) ||
+      start.toISOString().slice(0, 10) !== startDate ||
+      end.toISOString().slice(0, 10) !== endDate ||
+      days < 1 || days > 14 || !Number.isInteger(guests) || guests < 1 || guests > 30 ||
+      !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(startTime) ||
+      !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(endTime) ||
+      (days === 1 && endTime < startTime) ||
+      (hasBudget && (!Number.isSafeInteger(budget) || budget < 0 || budget > 1000000000))) return null;
+  return {
+    start_date: startDate,
+    end_date: endDate,
+    start_time: startTime,
+    end_time: endTime,
+    days,
+    nights: days - 1,
+    guests,
+    budget,
+    origin: clean(value.origin, 100),
+  };
+}
+
+async function plannerResponse({ message, history, trip, apiKey, res }) {
+  const systemInstruction = `Bạn là trợ lý lập kế hoạch du lịch. Hãy tự chọn điểm đến nếu khách chưa nêu; lên lịch hợp lý theo ngày giờ, số khách, ngân sách và sở thích được cung cấp. Nếu khách chưa nói nơi khởi hành, giả định TP. Hồ Chí Minh và ghi rõ giả định này trong summary; nếu khách đã nói thì dùng nơi đó. Ngày đầu bắt đầu không sớm hơn giờ khởi hành đã chọn; ngày cuối kết thúc trước giờ kết thúc đã chọn. Ngân sách chuyến đi trong thông tin bên dưới là giới hạn tham khảo theo mỗi người. Mọi giá bạn tự đưa ra là GIÁ MÔ PHỎNG VND, không phải báo giá thật, không được khẳng định còn chỗ hoặc đã đặt. Chi phí khách sạn là giá/phòng/đêm; ước tính tối đa 2 khách/phòng. Vé tham quan mỗi hoạt động là vé/người. Vé máy bay là vé khứ hồi/người; nếu không hợp lý cho điểm xuất phát hoặc ngày, đề xuất phương tiện liên tỉnh thay thế và vẫn dùng hạng mục này làm chi phí ước tính. Trả lời CHỈ bằng JSON hợp lệ, không markdown, theo schema: {"destination":"...","summary":"...","days":[{"title":"...","activities":[{"time":"HH:mm","name":"...","location":"...","duration":"...","ticket_per_person":0}]}],"services":{"flight":{"name":"...","price_per_person":0},"hotel":{"name":"...","price_per_room_per_night":0},"transport":{"name":"...","price_per_person":0},"meals":{"name":"...","price_per_person":0}}}. Cần đúng ${trip.days} ngày, mỗi ngày 1-4 hoạt động. Chỉ đưa số nguyên VND không âm, mức giá hợp lý với địa điểm và ngày đi. Tránh khẳng định lịch bay cụ thể, chỉ đưa mức dự toán di chuyển phù hợp với phương tiện được đề xuất. Không được bỏ qua thành phần chi phí. Nếu ngân sách thấp, vẫn lập phương án tiết kiệm và ghi rõ trong summary.`;
+  const messages = [
+    { role: 'system', content: `${systemInstruction}\n\nTHÔNG TIN CHUYẾN ĐI (dữ liệu tham khảo): ${JSON.stringify(trip)}` },
+    ...chatHistory(history),
+    { role: 'user', content: message },
+  ];
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://martech-app.vercel.app',
+        'X-OpenRouter-Title': 'VietJourney',
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: 'openrouter/free',
+        messages,
+        temperature: 0.6,
+        max_tokens: 4500,
+      }),
+    });
+
+    if (!response.ok) {
+      const details = await response.text();
+      console.error('[aichat] Planner OpenRouter error:', {
+        status: response.status,
+        details: details.slice(0, 1500),
+      });
+      if (response.status === 429) {
+        return send(res, 503, { success: false, error: 'Các model AI miễn phí đang quá tải. Vui lòng thử lại sau ít phút.' });
+      }
+      return send(res, 502, { success: false, error: 'AI đang gặp sự cố. Vui lòng thử lại.' });
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    const plan = normalizePlannerPlan(parsePlannerContent(content), trip);
+    if (!plan) {
+      console.error('[aichat] Planner returned invalid plan data');
+      return send(res, 502, { success: false, error: 'AI chưa thể tạo lịch trình hợp lệ. Vui lòng thử lại.' });
+    }
+    return send(res, 200, { success: true, plan });
+  } catch (error) {
+    console.error('[aichat] Planner request failed:', { errorCode: error?.name || 'UNKNOWN' });
+    return send(res, error?.name === 'AbortError' ? 504 : 502, {
+      success: false,
+      error: error?.name === 'AbortError' ? 'AI phản hồi quá lâu. Vui lòng thử lại.' : 'Không thể kết nối với AI.',
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -97,6 +191,17 @@ export default async function handler(req, res) {
       success: false,
       error: 'AI chưa được cấu hình.',
     });
+  }
+
+  if (body.mode === 'planner') {
+    const trip = plannerTrip(body.trip);
+    if (!trip) {
+      return send(res, 400, {
+        success: false,
+        error: 'Ngày, giờ, số khách hoặc ngân sách chưa hợp lệ.',
+      });
+    }
+    return plannerResponse({ message, history: body.history, trip, apiKey, res });
   }
 
   const customer = customerContext(body.customer);
