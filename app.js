@@ -747,16 +747,220 @@ $('#leadForm').addEventListener('submit', async (event) => {
   }
 });
 
-$('.menu').onclick = (event) => {
-  const nav = $('nav');
-  const open = nav.classList.toggle('open');
-  event.currentTarget.setAttribute('aria-expanded', open);
-};
+const plannerDates = ['07/11/2026', '08/11/2026', '09/11/2026'];
+const plannerIsoDates = ['2026-11-07', '2026-11-08', '2026-11-09'];
+const plannerSchedule = [
+  [
+    { time: '06:20', activity: 'Khởi hành từ sân bay Tân Sơn Nhất', location: 'TP. Hồ Chí Minh', duration: 'Theo vé máy bay', ticket: 0 },
+    { time: '08:50', activity: 'Đến sân bay Liên Khương', location: 'Đức Trọng, Lâm Đồng', duration: 'Khoảng 1 giờ 40 phút di chuyển', ticket: 0 },
+    { time: '10:30', activity: 'Nhận phòng / gửi hành lý', location: 'Khách sạn trung tâm Đà Lạt', duration: 'Khoảng 30 phút', ticket: 0 },
+    { time: '14:00', activity: 'Dạo quanh hồ Xuân Hương', location: 'Trung tâm Đà Lạt', duration: 'Khoảng 2 giờ', ticket: 0 },
+  ],
+  [
+    { time: '08:00', activity: 'Tham quan thác Datanla', location: 'Quốc lộ 20, Đà Lạt', duration: 'Khoảng 2 giờ', ticket: 100000 },
+    { time: '11:30', activity: 'Ăn trưa địa phương', location: 'Khu vực trung tâm', duration: 'Khoảng 1 giờ', ticket: 0 },
+    { time: '14:00', activity: 'Tham quan đồi chè Cầu Đất', location: 'Xuân Trường, Đà Lạt', duration: 'Khoảng 3 giờ', ticket: 0 },
+  ],
+  [
+    { time: '08:00', activity: 'Dạo chợ Đà Lạt, ăn sáng', location: 'Nguyễn Thị Minh Khai, Đà Lạt', duration: 'Khoảng 1 giờ', ticket: 0 },
+    { time: '10:00', activity: 'Tham quan vườn hoa thành phố', location: 'Đường Trần Quốc Toản, Đà Lạt', duration: 'Khoảng 2 giờ', ticket: 0 },
+    { time: '14:30', activity: 'Di chuyển ra sân bay Liên Khương', location: 'Đức Trọng, Lâm Đồng', duration: 'Dự phòng khoảng 1 giờ 40 phút', ticket: 0 },
+  ],
+];
+const currencyFormatter = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
+let plannerWeather = [];
+let plannerWeatherError = '';
+let selectedPlannerDay = 0;
+
+function formatPlannerMoney(amount) {
+  return `${currencyFormatter.format(amount)}đ`;
+}
+
+function renderPlannerSchedule(dayIndex) {
+  selectedPlannerDay = dayIndex;
+  const rows = plannerSchedule[dayIndex].map((item) => {
+    const row = document.createElement('tr');
+    [item.time, `${item.activity} · ${item.location}`, item.duration, item.ticket ? `~${formatPlannerMoney(item.ticket)}` : 'Chưa gồm vé'].forEach((value) => {
+      const cell = document.createElement('td');
+      cell.textContent = value;
+      row.append(cell);
+    });
+    return row;
+  });
+  $('#plannerScheduleRows').replaceChildren(...rows);
+  $('[data-day-date]').textContent = plannerDates[dayIndex];
+  $('[data-day-count]').textContent = `${plannerSchedule[dayIndex].length} hoạt động`;
+  const dayTicketTotal = plannerSchedule[dayIndex].reduce((total, item) => total + item.ticket, 0);
+  $('#dayTicketTotal').textContent = dayTicketTotal
+    ? `Vé tham quan ngày này: ~${formatPlannerMoney(dayTicketTotal)}/người`
+    : 'Vé tham quan: chưa gồm vé';
+  $$('[data-day-panel]').forEach((panel) => {
+    panel.hidden = Number(panel.dataset.dayPanel) !== dayIndex;
+  });
+  $$('[data-planner-day]').forEach((button) => {
+    const active = Number(button.dataset.plannerDay) === dayIndex;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+  renderPlannerWeather(dayIndex);
+}
+
+function weatherLabel(code) {
+  if ([0].includes(code)) return 'Trời quang';
+  if ([1, 2].includes(code)) return 'Có mây';
+  if ([3].includes(code)) return 'Nhiều mây';
+  if ([45, 48].includes(code)) return 'Sương mù';
+  if ([51, 53, 55, 56, 57].includes(code)) return 'Mưa phùn';
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'Có mưa';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'Mưa tuyết';
+  if ([95, 96, 99].includes(code)) return 'Dông';
+  return 'Chưa có mô tả';
+}
+
+function renderPlannerWeather(dayIndex) {
+  const status = $('#weatherStatus');
+  if (plannerWeatherError) {
+    status.textContent = 'Chưa tải được dự báo thời tiết trực tiếp. Vui lòng thử lại sau.';
+    status.title = plannerWeatherError;
+    return;
+  }
+  const day = plannerWeather.find((item) => item.date === plannerIsoDates[dayIndex]);
+  if (!day) {
+    status.textContent = 'Đang tải dự báo thời tiết…';
+    return;
+  }
+  status.textContent = `☁ ${weatherLabel(day.code)} · ${Math.round(day.min)}°–${Math.round(day.max)}° · Khả năng mưa ${day.rain}%`;
+  status.title = 'Dự báo từ Open-Meteo; thời tiết thực tế có thể thay đổi.';
+}
+
+async function loadPlannerWeather() {
+  const url = new URL('https://api.open-meteo.com/v1/forecast');
+  url.search = new URLSearchParams({
+    latitude: '11.9404',
+    longitude: '108.4583',
+    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
+    timezone: 'Asia/Ho_Chi_Minh',
+    forecast_days: '16',
+  }).toString();
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Dịch vụ thời tiết phản hồi mã ${response.status}.`);
+    const data = await response.json();
+    const daily = data?.daily;
+    if (!Array.isArray(daily?.time) || !Array.isArray(daily?.weather_code) ||
+        !Array.isArray(daily?.temperature_2m_max) || !Array.isArray(daily?.temperature_2m_min) ||
+        !Array.isArray(daily?.precipitation_probability_max)) {
+      throw new Error('Dữ liệu dự báo thời tiết không đúng định dạng.');
+    }
+    plannerWeather = daily.time.map((date, index) => ({
+      date,
+      code: Number(daily.weather_code[index]),
+      max: Number(daily.temperature_2m_max[index]),
+      min: Number(daily.temperature_2m_min[index]),
+      rain: Number(daily.precipitation_probability_max[index]),
+    })).filter((item) => plannerIsoDates.includes(item.date));
+    if (!plannerWeather.length) throw new Error('Dịch vụ chưa có dự báo cho ngày đã chọn.');
+    plannerWeatherError = '';
+    renderPlannerWeather(selectedPlannerDay);
+  } catch (error) {
+    plannerWeatherError = error instanceof Error ? error.message : 'Lỗi không xác định khi tải thời tiết.';
+    renderPlannerWeather(selectedPlannerDay);
+  }
+}
+
+function updatePlannerCost() {
+  const fields = ['estimateGuests', 'estimateRooms', 'estimateFlight', 'estimateHotel', 'estimateTransport', 'estimateMeals', 'estimateTickets'];
+  const values = fields.map((id) => {
+    const field = $(`#${id}`);
+    const value = Number(field.value);
+    const valid = field.value.trim() !== '' && Number.isFinite(value) && value >= Number(field.min || 0) && value <= Number(field.max || Number.MAX_SAFE_INTEGER);
+    field.setAttribute('aria-invalid', String(!valid));
+    return valid ? value : null;
+  });
+  if (values.some((value) => value === null)) {
+    $('#estimateTotal').textContent = '—';
+    $('#estimatePerGuest').textContent = '—';
+    $('#toolbarCost').textContent = 'Chưa đủ dữ liệu';
+    $('#costCalcStatus').textContent = 'Nhập số khách, số phòng và các chi phí hợp lệ để tính dự toán.';
+    return;
+  }
+  const [guests, rooms, flight, hotel, transport, meals, tickets] = values;
+  const total = (flight + transport + meals + tickets) * guests + hotel * 2 * rooms;
+  const perGuest = Math.ceil(total / guests);
+  $('#estimateTotal').textContent = formatPlannerMoney(total);
+  $('#estimatePerGuest').textContent = formatPlannerMoney(perGuest);
+  $('#toolbarCost').textContent = `~${formatPlannerMoney(perGuest)}/người`;
+  $('#costCalcStatus').textContent = '';
+}
+
+$$('[data-planner-day]').forEach((button) => {
+  button.addEventListener('click', () => renderPlannerSchedule(Number(button.dataset.plannerDay)));
+});
+$$('#estimateGuests, #estimateRooms, #estimateFlight, #estimateHotel, #estimateTransport, #estimateMeals, #estimateTickets')
+  .forEach((field) => field.addEventListener('input', updatePlannerCost));
+
+$('#shareItinerary').addEventListener('click', async () => {
+  const shareUrl = `${window.location.origin}${window.location.pathname}#planner-itinerary`;
+  const shareData = { title: 'Lịch trình Đà Lạt · VietJourney', text: 'Xem lịch trình Đà Lạt 3 ngày 2 đêm.', url: shareUrl };
+  const status = $('#shareStatus');
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
+      status.textContent = 'Đã mở tùy chọn chia sẻ.';
+    } else {
+      await navigator.clipboard.writeText(shareUrl);
+      status.textContent = 'Đã sao chép liên kết lịch trình.';
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') return;
+    status.textContent = 'Không thể chia sẻ tự động. Hãy sao chép địa chỉ trang để gửi.';
+  }
+});
+
+$$('.planner-tabs [role="tab"]').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    $$('.planner-tabs [role="tab"]').forEach((item) => item.classList.toggle('active', item === tab));
+  });
+});
+
+function searchPlannerMap() {
+  const query = $('#mapSearch').value.trim();
+  if (!query) return;
+  const mapUrl = new URL('https://maps.google.com/maps');
+  mapUrl.search = new URLSearchParams({ q: query, output: 'embed' }).toString();
+  $('#plannerMapFrame').src = mapUrl.toString();
+}
+
+$('#mapSearch').addEventListener('change', searchPlannerMap);
+$('#mapSearch').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    searchPlannerMap();
+  }
+});
+$('#mapFilter').addEventListener('change', (event) => {
+  const category = event.currentTarget.value;
+  $('#mapSearch').value = category === 'Tất cả' ? 'Đà Lạt' : `${category} ở Đà Lạt`;
+  searchPlannerMap();
+});
+
+renderPlannerSchedule(0);
+updatePlannerCost();
+loadPlannerWeather();
+
+$$('.menu, .planner-menu').forEach((button) => {
+  button.onclick = (event) => {
+    const nav = $('nav');
+    const open = nav.classList.toggle('open');
+    $$('.menu, .planner-menu').forEach((item) => item.setAttribute('aria-expanded', String(open)));
+    event.currentTarget.setAttribute('aria-expanded', String(open));
+  };
+});
 
 $$('nav a').forEach((link) => {
   link.onclick = () => {
     $('nav').classList.remove('open');
-    $('.menu').setAttribute('aria-expanded', 'false');
+    $$('.menu, .planner-menu').forEach((button) => button.setAttribute('aria-expanded', 'false'));
   };
 });
 

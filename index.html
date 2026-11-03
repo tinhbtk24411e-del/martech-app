@@ -25,40 +25,139 @@
       </nav>
     </header>
     <main id="main">
-      <section id="top" class="hero">
-        <div class="hero-glow" aria-hidden="true"></div>
-        <div class="hero-content">
-          <p class="eyebrow light">CHUYẾN ĐI CỦA BẠN, BẮT ĐẦU TỪ ĐÂY</p>
-          <h1>Mình cùng tìm<br><em>một chuyến đi thật vui nhé?</em></h1>
-          <p>Chọn nơi bạn muốn đến, xem những hành trình đang có và để VietJourney giúp bạn lên kế hoạch vừa ý.</p>
-          <div class="actions">
-            <a class="button coral" href="#tours">Xem các chuyến đi <span>→</span></a>
-            <a class="button ghost" href="#contact">Nhờ tư vấn <span>♡</span></a>
-          </div>
-          <div class="hero-proof"><span>✦ Tour trong catalog</span><i></i><span>♡ Tư vấn theo nhu cầu</span></div>
-        </div>
-        <div class="hero-search">
-          <span class="search-mark" aria-hidden="true">✦</span>
-          <p class="finder-kicker">BẮT ĐẦU THẬT DỄ</p>
-          <h2>Bạn muốn đi đâu?</h2>
-          <p class="finder-copy">Chọn điểm đến để tìm hành trình hợp gu.</p>
-          <form id="destinationSearch" class="destination-search">
-            <label class="sr-only" for="destinationQuery">Điểm đến</label>
-            <select id="destinationQuery" aria-label="Chọn điểm đến">
-              <option value="">Mình chưa chọn điểm đến</option>
-            </select>
-            <label class="sr-only" for="budgetQuery">Ngân sách mỗi người</label>
-            <select id="budgetQuery" aria-label="Chọn khoảng ngân sách mỗi người">
-              <option value="">Mọi mức ngân sách</option>
-              <option value="under2">Dưới 2,000,000 đồng</option>
-              <option value="2to5">2,000,000–5,000,000 đồng</option>
-              <option value="5to8">5,000,000–8,000,000 đồng</option>
-              <option value="8to12">8,000,000–12,000,000 đồng</option>
-              <option value="over12">Trên 12,000,000 đồng</option>
-            </select>
-            <button class="button teal" type="submit">Tìm chuyến đi <span>→</span></button>
+      <section id="top" class="planner-app" aria-label="Lịch trình du lịch Đà Lạt">
+        <aside class="planner-sidebar">
+          <div class="planner-brand"><a class="brand" href="#top"><span>V</span>VietJourney</a><button class="planner-menu" type="button" aria-label="Mở điều hướng" aria-expanded="false">☰</button></div>
+          <div class="planner-chat-title"><span class="planner-avatar">✦</span><div><strong>Cùng lên kế hoạch nhé</strong><small>Trợ lý VietJourney · đang hoạt động</small></div></div>
+          <aside class="chat-widget" aria-label="Trợ lý VietJourney">
+            <section id="chatPanel" class="chat-panel" aria-label="Khung trò chuyện">
+              <div class="chat-header">
+                <div class="chat-avatar" aria-hidden="true">V</div>
+                <div><strong>Trợ lý chuyến đi</strong><span><i></i> AI tư vấn du lịch</span></div>
+                <button id="chatClose" class="chat-close" type="button" aria-label="Thu gọn trò chuyện">−</button>
+              </div>
+              <div id="chatMessages" class="chat-messages" aria-live="polite">
+                <div class="chat-bubble bot">Mình có thể lên lịch trình Đà Lạt 3 ngày 2 đêm theo ngân sách 3 triệu đồng/người. Để sắp xếp phù hợp hơn, bạn khởi hành từ đâu và muốn đi ngày nào?</div>
+                <div class="chat-bubble user">Khởi hành từ TP.HCM vào cuối tuần này.</div>
+                <div class="chat-bubble bot">Mình đang ghép chuyến đi và nơi lưu trú phù hợp. Bạn muốn ưu tiên nghỉ dưỡng hay khám phá nhiều điểm?</div>
+                <div class="chat-suggestions">
+                  <button type="button" data-chat-prompt="Gợi ý lịch trình nhẹ nhàng hơn cho ngày đầu tiên">Ngày đầu nhẹ nhàng</button>
+                  <button type="button" data-chat-prompt="Trời mưa ở Đà Lạt thì nên đi đâu?">Gợi ý khi trời mưa</button>
+                  <button type="button" data-chat-prompt="Tối ưu chuyến đi trong ngân sách 3 triệu đồng mỗi người">Tối ưu ngân sách</button>
+                  <button type="button" data-chat-prompt="Gợi ý chuyến đi phù hợp cho gia đình có trẻ nhỏ">Đi cùng trẻ nhỏ</button>
+                </div>
+              </div>
+              <form id="chatForm" class="chat-composer">
+                <label class="sr-only" for="chatInput">Tin nhắn</label>
+                <input id="chatInput" maxlength="300" placeholder="Nhập mong muốn hoặc chia sẻ link..." autocomplete="off">
+                <button type="submit" aria-label="Gửi tin nhắn">➤</button>
+              </form>
+              <p class="chat-footnote">Gợi ý từ AI chỉ mang tính tham khảo. Giá và dịch vụ cần được xác nhận.</p>
+            </section>
+            <button id="chatToggle" class="chat-toggle" type="button" aria-label="Mở trợ lý chuyến đi" aria-expanded="true" aria-controls="chatPanel">
+              <span class="chat-toggle-icon" aria-hidden="true">✦</span><span>Hỏi tụi mình nhé</span><span class="chat-online" aria-hidden="true"></span>
+            </button>
+          </aside>
+          <a class="planner-sidebar-link" href="#tours">Khám phá thêm tour <span>→</span></a>
+        </aside>
+        <div class="planner-main">
+          <form id="destinationSearch" hidden>
+            <select id="destinationQuery" aria-label="Điểm đến"><option value="">Mọi điểm đến</option></select>
+            <select id="budgetQuery" aria-label="Ngân sách"><option value="">Mọi mức ngân sách</option></select>
+            <button type="submit">Tìm tour</button>
           </form>
-          <div class="finder-note"><span>☀</span> Chưa biết chọn đâu? Cứ xem những nơi mọi người yêu thích.</div>
+          <div class="planner-toolbar">
+            <div class="planner-trip-meta">
+              <span>▣ <strong>07/11/2026 – 09/11/2026</strong> <small>⌄</small></span>
+              <span>♧ <strong>1 khách</strong> · <strong>1 phòng</strong> <small>⌄</small></span>
+            </div>
+            <div class="planner-toolbar-actions"><span>Chi phí dự kiến <strong id="toolbarCost">~3.000.000đ/người</strong></span><button class="planner-share" type="button" id="shareItinerary">↗ <span>Chia sẻ lịch trình</span></button><span id="shareStatus" class="share-status" aria-live="polite"></span></div>
+          </div>
+          <div class="planner-tabs" role="tablist" aria-label="Nội dung lịch trình">
+            <a class="active" href="#planner-itinerary" role="tab">Lịch trình theo ngày</a>
+            <a href="#planner-services" role="tab">Tổng quan dịch vụ</a>
+            <a class="planner-booking" href="#planner-services">Xem dịch vụ có thể đặt trước</a>
+          </div>
+          <section class="planner-destination" aria-label="Điểm đến">
+            <img src="https://images.unsplash.com/photo-1555938311-26f2912b4d7e?auto=format&fit=crop&w=700&q=80" alt="Phong cảnh Đà Lạt lúc hoàng hôn" onerror="this.src='https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=700&q=80'">
+            <div><p class="eyebrow">CHUYẾN ĐI ĐANG LÊN KẾ HOẠCH</p><h1>Đà Lạt</h1><p>07/11/2026 – 09/11/2026 · 3 ngày 2 đêm</p><span>Gợi ý theo ngân sách và sở thích của bạn</span></div>
+            <a class="destination-edit" href="#contact" aria-label="Chỉnh sửa yêu cầu">✎</a>
+          </section>
+          <section id="planner-itinerary" class="planner-day-map">
+            <div class="planner-itinerary">
+              <div class="planner-section-heading"><h2><span>✈</span> Lịch trình của bạn</h2><a href="#contact">Chỉnh sửa ✎</a></div>
+              <div class="day-summary">
+                <div class="day-tabs" role="tablist" aria-label="Chọn ngày">
+                  <button class="active" type="button" role="tab" aria-selected="true" data-planner-day="0">Ngày 1</button>
+                  <button type="button" role="tab" aria-selected="false" data-planner-day="1">Ngày 2</button>
+                  <button type="button" role="tab" aria-selected="false" data-planner-day="2">Ngày 3</button>
+                </div>
+                <div class="day-summary-meta"><strong data-day-date>07/11/2026</strong><span id="weatherStatus" role="status">Đang tải dự báo thời tiết…</span><a href="#planner-map">⌖ 4/4 điểm đến trên bản đồ</a><small id="weatherSource">Dự báo Open-Meteo · thời tiết thực tế có thể thay đổi.</small><small id="dayTicketTotal">Vé tham quan: đang tính…</small></div>
+              </div>
+              <div class="itinerary-title"><h3>Lịch trình trong ngày</h3><span data-day-count>4 hoạt động</span></div>
+              <div class="day-activities" data-day-panel="0">
+                <article class="activity-card"><time>06:20</time><span class="activity-number">1</span><img src="https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=160&q=80" alt=""><div><strong>Sân bay Tân Sơn Nhất</strong><a href="#planner-map">⌖ Trường Sơn, Tân Sơn Hòa, TP. Hồ Chí Minh</a><small>◷ 0 phút</small><p>Khởi hành trên chuyến bay đến Đà Lạt. Vé máy bay là gợi ý tham khảo.</p></div><button type="button" aria-label="Tùy chọn hoạt động">⋮</button></article>
+                <article class="activity-card"><time>08:50</time><span class="activity-number">2</span><img src="https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=160&q=80" alt=""><div><strong>Sân bay Liên Khương</strong><a href="#planner-map">⌖ Liên Nghĩa, Đức Trọng, Lâm Đồng</a><small>◷ 0 phút</small><p>Đến nơi, lấy hành lý và di chuyển về trung tâm Đà Lạt.</p></div><button type="button" aria-label="Tùy chọn hoạt động">⋮</button></article>
+                <article class="activity-card"><time>10:30</time><span class="activity-number">3</span><img src="https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=160&q=80" alt=""><div><strong>Nhận phòng khách sạn</strong><a href="#planner-services">⌖ Trung tâm thành phố Đà Lạt</a><small>◷ Nghỉ ngơi và gửi hành lý</small><p>Gợi ý khách sạn trung tâm, chờ xác nhận tình trạng phòng.</p></div><button type="button" aria-label="Tùy chọn hoạt động">⋮</button></article>
+                <article class="activity-card"><time>14:00</time><span class="activity-number">4</span><img src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=160&q=80" alt=""><div><strong>Khám phá trung tâm Đà Lạt</strong><a href="#planner-map">⌖ Hồ Xuân Hương, phường Xuân Hương</a><small>◷ Khoảng 2 giờ</small><p>Dạo quanh hồ, thưởng thức cà phê và ngắm phố núi.</p></div><button type="button" aria-label="Tùy chọn hoạt động">⋮</button></article>
+              </div>
+              <div class="day-activities" data-day-panel="1" hidden>
+                <article class="activity-card"><time>08:00</time><span class="activity-number">1</span><img src="https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=160&q=80" alt=""><div><strong>Thác Datanla</strong><a href="#planner-map">⌖ Quốc lộ 20, Đà Lạt</a><small>◷ Khoảng 2 giờ</small><p>Tham quan thác nước và khu rừng thông xanh mát.</p></div><button type="button" aria-label="Tùy chọn hoạt động">⋮</button></article>
+                <article class="activity-card"><time>11:30</time><span class="activity-number">2</span><img src="https://images.unsplash.com/photo-1445019980597-93fa8acb246c?auto=format&fit=crop&w=160&q=80" alt=""><div><strong>Dùng bữa trưa địa phương</strong><a href="#planner-map">⌖ Khu vực trung tâm Đà Lạt</a><small>◷ Khoảng 1 giờ</small><p>Chọn quán ăn theo sở thích và ngân sách thực tế.</p></div><button type="button" aria-label="Tùy chọn hoạt động">⋮</button></article>
+                <article class="activity-card"><time>14:00</time><span class="activity-number">3</span><img src="https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?auto=format&fit=crop&w=160&q=80" alt=""><div><strong>Đồi chè Cầu Đất</strong><a href="#planner-map">⌖ Xuân Trường, Đà Lạt</a><small>◷ Khoảng 3 giờ</small><p>Ngắm đồi chè và đón hoàng hôn ngoại ô.</p></div><button type="button" aria-label="Tùy chọn hoạt động">⋮</button></article>
+              </div>
+              <div class="day-activities" data-day-panel="2" hidden>
+                <article class="activity-card"><time>08:00</time><span class="activity-number">1</span><img src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=160&q=80" alt=""><div><strong>Chợ Đà Lạt</strong><a href="#planner-map">⌖ Nguyễn Thị Minh Khai, Đà Lạt</a><small>◷ Khoảng 1 giờ</small><p>Ăn sáng, mua đặc sản và dạo quanh khu chợ.</p></div><button type="button" aria-label="Tùy chọn hoạt động">⋮</button></article>
+                <article class="activity-card"><time>10:00</time><span class="activity-number">2</span><img src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=160&q=80" alt=""><div><strong>Vườn hoa thành phố</strong><a href="#planner-map">⌖ Đường Trần Quốc Toản, Đà Lạt</a><small>◷ Khoảng 2 giờ</small><p>Tham quan không gian hoa theo mùa và chụp ảnh.</p></div><button type="button" aria-label="Tùy chọn hoạt động">⋮</button></article>
+                <article class="activity-card"><time>14:30</time><span class="activity-number">3</span><img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=160&q=80" alt=""><div><strong>Trở về TP. Hồ Chí Minh</strong><a href="#planner-map">⌖ Sân bay Liên Khương</a><small>◷ Có mặt trước giờ khởi hành</small><p>Kết thúc chuyến đi; phương tiện và vé cần xác nhận trước.</p></div><button type="button" aria-label="Tùy chọn hoạt động">⋮</button></article>
+              </div>
+              <div class="schedule-table-wrap">
+                <table class="schedule-table">
+                  <thead><tr><th>Thời gian</th><th>Hoạt động / địa điểm</th><th>Thời lượng</th><th>Vé tham khảo/người</th></tr></thead>
+                  <tbody id="plannerScheduleRows"></tbody>
+                </table>
+                <p>Thời gian di chuyển và giá vé là ước tính minh họa, cần kiểm tra lại trước chuyến đi.</p>
+              </div>
+            </div>
+            <div id="planner-map" class="planner-map">
+              <div class="map-controls"><label for="mapSearch">Tìm kiếm<input id="mapSearch" placeholder="Nhập địa điểm..." value="Đà Lạt"></label><label for="mapFilter">Lọc địa điểm<select id="mapFilter"><option>Tất cả</option><option>Ăn uống</option><option>Tham quan</option><option>Lưu trú</option></select></label><a href="https://www.google.com/maps/search/?api=1&query=Da+Lat%2C+Vietnam" target="_blank" rel="noopener noreferrer">G <strong>Xem lộ trình trên Google Maps</strong></a></div>
+              <iframe id="plannerMapFrame" title="Bản đồ khu vực Đà Lạt" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=108.425%2C11.920%2C108.490%2C11.975&layer=mapnik&marker=11.940%2C108.458" referrerpolicy="no-referrer"></iframe>
+              <div class="map-caption">Chọn địa điểm để xem vị trí trên bản đồ · <a href="https://www.openstreetmap.org/?mlat=11.940&mlon=108.458#map=14/11.940/108.458" target="_blank" rel="noopener noreferrer">Mở bản đồ lớn ↗</a></div>
+            </div>
+          </section>
+          <section class="planner-services" id="planner-services">
+            <div class="planner-section-heading"><h2><span>▣</span> Dịch vụ gợi ý cho chuyến đi <small>Tham khảo · cần xác nhận</small></h2><a href="#contact">Xem thêm →</a></div>
+            <div class="service-group"><div class="planner-section-heading"><h3>Khách sạn <span class="service-pill">3 ngày 2 đêm</span></h3><a href="#contact">Xem tất cả</a></div>
+              <div class="service-cards">
+                <article class="service-card"><img src="https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=650&q=80" alt="Khách sạn phong cách cổ điển"><div><strong>Saphir Dalat Hotel</strong><span class="stars">★★★★★</span><small>Giá tham khảo</small><b>~1.020.000đ/đêm</b></div></article>
+                <article class="service-card"><img src="https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=650&q=80" alt="Khu nghỉ dưỡng có hồ bơi"><div><strong>Khách sạn trung tâm Đà Lạt</strong><span class="stars">★★★★☆</span><small>Giá tham khảo</small><b>~850.000đ/đêm</b></div></article>
+                <article class="service-card"><img src="https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=650&q=80" alt="Sảnh khách sạn hiện đại"><div><strong>Aris Đà Lạt</strong><span class="stars">★★★★☆</span><small>Giá tham khảo</small><b>~700.000đ/đêm</b></div></article>
+              </div>
+            </div>
+            <div class="service-group"><div class="planner-section-heading"><h3>Điểm tham quan</h3><a href="#tours">Khám phá tour →</a></div>
+              <div class="service-cards">
+                <article class="service-card"><img src="https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=650&q=80" alt="Thác nước giữa rừng"><div><strong>Thác Datanla</strong><small>Thiên nhiên · Ngoài trời</small><b>Giá vé cần xác nhận</b></div></article>
+                <article class="service-card"><img src="https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?auto=format&fit=crop&w=650&q=80" alt="Đồi chè xanh lúc hoàng hôn"><div><strong>Đồi chè Cầu Đất</strong><small>Ngắm cảnh · Chụp ảnh</small><b>Giá vé cần xác nhận</b></div></article>
+                <article class="service-card"><img src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=650&q=80" alt="Rừng thông Đà Lạt"><div><strong>Vườn hoa Đà Lạt</strong><small>Tham quan · Theo mùa</small><b>Giá vé cần xác nhận</b></div></article>
+              </div>
+            </div>
+            <section class="planner-costs" aria-labelledby="plannerCostTitle">
+              <div class="planner-section-heading"><h3 id="plannerCostTitle">Dự toán chi phí chuyến đi</h3><span>Ước tính · có thể chỉnh sửa</span></div>
+              <div class="cost-inputs">
+                <label>Số khách<input id="estimateGuests" type="number" min="1" max="30" value="1"></label>
+                <label>Số phòng<input id="estimateRooms" type="number" min="1" max="15" value="1"></label>
+                <label>Vé khứ hồi/người (đ)<input id="estimateFlight" type="number" min="0" step="50000" value="900000"></label>
+                <label>Khách sạn/phòng/đêm (đ)<input id="estimateHotel" type="number" min="0" step="50000" value="650000"></label>
+                <label>Di chuyển nội thành/người (đ)<input id="estimateTransport" type="number" min="0" step="50000" value="250000"></label>
+                <label>Ăn uống/người (đ)<input id="estimateMeals" type="number" min="0" step="50000" value="450000"></label>
+                <label>Vé tham quan/người (đ)<input id="estimateTickets" type="number" min="0" step="50000" value="100000"></label>
+              </div>
+              <div class="cost-total"><div><span>Tổng dự toán cả đoàn (2 đêm)</span><strong id="estimateTotal">3.000.000đ</strong></div><div><span>Ước tính mỗi khách</span><strong id="estimatePerGuest">3.000.000đ</strong></div></div>
+              <p id="costCalcStatus" class="cost-calc-status" role="status" aria-live="polite"></p>
+              <p class="cost-note">Dự toán mẫu, không phải báo giá. Giá vé tham quan, phòng và vé máy bay thay đổi theo ngày/nhà cung cấp; vui lòng xác nhận trước khi đặt.</p>
+            </section>
+            <p class="planner-disclaimer">Lịch trình và giá trong bản demo chỉ để tham khảo, chưa phải xác nhận đặt chỗ. VietJourney sẽ kiểm tra tình trạng dịch vụ theo ngày đi thực tế.</p>
+          </section>
         </div>
       </section>
       <section class="promise-strip" aria-label="VietJourney đồng hành cùng bạn">
@@ -171,32 +270,6 @@
         <button id="dialogChoose" class="button teal" type="button">Nhờ tư vấn tour này</button>
       </div>
     </dialog>
-    <aside class="chat-widget" aria-label="Trợ lý VietJourney">
-      <section id="chatPanel" class="chat-panel" aria-label="Khung trò chuyện" hidden>
-        <div class="chat-header">
-          <div class="chat-avatar" aria-hidden="true">V</div>
-          <div><strong>Trợ lý chuyến đi</strong><span><i></i> AI tư vấn du lịch</span></div>
-          <button id="chatClose" class="chat-close" type="button" aria-label="Đóng trò chuyện">×</button>
-        </div>
-        <div id="chatMessages" class="chat-messages" aria-live="polite">
-          <div class="chat-bubble bot">Chào bạn 👋 Mình có thể giúp bạn khám phá các tour đang có. Bạn thích biển, núi hay ẩm thực nhỉ?</div>
-          <div class="chat-suggestions">
-            <button type="button" data-chat-prompt="Mình thích biển">🏖️ Đi biển</button>
-            <button type="button" data-chat-prompt="Mình thích thiên nhiên và trekking">🌿 Thiên nhiên</button>
-            <button type="button" data-chat-prompt="Mình muốn được tư vấn">💬 Nhờ tư vấn</button>
-          </div>
-        </div>
-        <form id="chatForm" class="chat-composer">
-          <label class="sr-only" for="chatInput">Tin nhắn</label>
-          <input id="chatInput" maxlength="300" placeholder="Nhắn điều bạn đang tìm..." autocomplete="off">
-          <button type="submit" aria-label="Gửi tin nhắn">➤</button>
-        </form>
-        <p class="chat-footnote">AI tư vấn dựa trên catalog tour tham khảo; giá và lịch khởi hành cần xác nhận. Tin nhắn được gửi qua OpenRouter. Không gửi thông tin cá nhân nhạy cảm.</p>
-      </section>
-      <button id="chatToggle" class="chat-toggle" type="button" aria-label="Mở trợ lý chuyến đi" aria-expanded="false" aria-controls="chatPanel">
-        <span class="chat-toggle-icon" aria-hidden="true">✦</span><span>Hỏi tụi mình nhé</span><span class="chat-online" aria-hidden="true"></span>
-      </button>
-    </aside>
     <script type="module" src="app.js"></script>
   </body>
 </html>
