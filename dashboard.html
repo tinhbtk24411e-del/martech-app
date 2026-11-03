@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="description" content="Dashboard KPI mẫu cho VietJourney, sử dụng dữ liệu giả lập.">
+    <title>VietJourney | Dashboard KPI demo</title>
+    <link rel="stylesheet" href="dashboard.css">
+  </head>
+  <body>
+    <header class="dashboard-header">
+      <a class="brand" href="index.html"><span>V</span>VietJourney</a>
+      <a href="index.html">← Trở về website</a>
+    </header>
+    <main>
+      <section class="intro">
+        <p class="eyebrow">MARTECH REVENUE ENGINE</p>
+        <h1>Sales funnel & KPI</h1>
+        <p>Theo dõi hành trình từ khách truy cập đến đặt tour. Số liệu trên trang này hoàn toàn giả lập, không lấy từ CRM hay khách hàng thật.</p>
+        <div class="toolbar">
+          <label for="periodFilter">Khoảng thời gian</label>
+          <select id="periodFilter">
+            <option value="all">6 tháng gần nhất</option>
+          </select>
+          <button id="exportCsv" type="button">Tải CSV cho Excel ↓</button>
+        </div>
+      </section>
+
+      <section class="assumptions" aria-labelledby="assumptionTitle">
+        <h2 id="assumptionTitle">Giả định dữ liệu demo</h2>
+        <ul>
+          <li>Visitors, Leads, MQL, SQL và Customers là số tổng hợp giả lập theo tháng.</li>
+          <li>MQL là lead đạt tiêu chí nhu cầu/điểm ưu tiên; SQL là lead được Sales chấp nhận; Customers là khách đã đặt tour.</li>
+          <li>Lead Conversion = Leads / Visitors; Booking Conversion = Customers / Leads.</li>
+          <li>CAC ước tính = chi phí marketing / số khách đặt tour trong kỳ.</li>
+          <li>LTV ước tính = doanh thu trung bình / khách × giả định 1,25 lượt đặt trong vòng đời.</li>
+          <li>Doanh thu, chi phí, tỷ lệ và LTV đều là mô phỏng; cần thay bằng dữ liệu analytics/CRM thực trước khi ra quyết định.</li>
+        </ul>
+      </section>
+
+      <section class="kpi-grid" id="kpiGrid" aria-live="polite"></section>
+
+      <section class="panel funnel-panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">HÀNH TRÌNH KHÁCH HÀNG</p><h2>Sales Funnel</h2></div>
+          <span id="funnelPeriod"></span>
+        </div>
+        <div id="funnel" class="funnel" aria-live="polite"></div>
+      </section>
+
+      <section class="panel table-panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">DỮ LIỆU THEO THÁNG</p><h2>Hiệu quả marketing</h2></div>
+          <span>Dataset giả lập · VND</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Tháng</th><th>Visitors</th><th>Leads</th><th>MQL</th><th>SQL</th><th>Customers</th><th>Lead CR</th><th>Booking CR</th><th>Revenue</th><th>CAC ước tính</th><th>LTV ước tính</th></tr>
+            </thead>
+            <tbody id="monthlyRows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <footer>Dữ liệu demo được tạo để minh họa dashboard, không phản ánh kết quả kinh doanh thực tế.</footer>
+    <script type="module" src="dashboard.js"></script>
+  </body>
+</html>

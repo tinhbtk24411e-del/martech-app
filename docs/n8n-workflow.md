@@ -1,129 +1,73 @@
-# n8n workflow mẫu cho lead + voucher + Google Sheets
+# n8n Marketing Automation cho VietJourney
 
-Mục tiêu:
-- nhận lead từ `/api/leads`
-- tính lead score / lead level
-- gửi voucher qua email hoặc Zalo OA
-- lưu lead vào Google Sheets
-- gửi báo cho Sales
-- trả về thông tin confirm cho backend
+## Luồng tổng thể
 
-## 1) Webhook trigger
+`Website form → /api/leads → Supabase → n8n Webhook → Google Sheets + thông báo Sales + email tùy chọn → xác nhận backend`
 
-- Trigger: Webhook
-- Method: POST
-- Path: `travel-lead`
-- Authentication: custom header hoặc optional
-- Header cần check: `X-Automation-Secret`
+Backend lưu lead vào Supabase trước khi gọi n8n. Nếu webhook timeout hoặc lỗi, lead vẫn được lưu với `notification_status = PENDING`; cần theo dõi và xử lý lại các lead này. Webhook được gọi đồng bộ với timeout 15 giây nên giữ workflow nhẹ và phản hồi sớm.
 
-## 2) Node kiểm tra secret
+## 1. Webhook và xác thực
 
-Nếu dùng header secret:
+1. Tạo Webhook node, method `POST`, path `travel-lead`, response mode `Using Respond to Webhook`.
+2. Cấu hình Header Auth credential với header `X-Automation-Secret`; tạo secret đủ ngẫu nhiên.
+3. Đặt URL production của webhook vào biến server `N8N_WEBHOOK_URL` và cùng giá trị secret vào `N8N_WEBHOOK_SECRET`. Không đưa hai giá trị này lên frontend.
+4. Webhook nhận payload lead ở `body` (các cấu hình n8n có thể chuyển body thành root; kiểm tra output của Webhook node).
 
-```javascript
-const authHeader = $json.headers['x-automation-secret'];
-const expected = process.env.N8N_WEBHOOK_SECRET;
+`/api/leads` gửi các thông tin liên hệ đã được khách đồng ý cung cấp, nhu cầu, tóm tắt tư vấn AI, UTM, tour quan tâm, `lead_score`, `lead_level`, `score_signals`, `customer_segment` và `customer_traits`.
 
-if (!authHeader || authHeader !== expected) {
-  throw new Error('Unauthorized');
-}
+## 2. Phân loại nhu cầu và ưu tiên lead
 
-return $json;
-```
+API tính các trường này sau khi validate lead và tour. Đây là rule-based scoring có thể giải thích, không phải dự đoán mua hàng từ mô hình AI:
 
-## 3) Node tính lead score
+| Tín hiệu | Điểm |
+|---|---:|
+| Gửi yêu cầu tư vấn | 35 |
+| Chọn tour cụ thể trong yêu cầu tư vấn | +20 |
+| Mỗi lượt xem chi tiết tour, tối đa 3 lượt | +5 |
+| Khách quay lại website | +10 |
 
-Dùng Set node hoặc Code node:
+- `HOT`: từ 70 điểm; `WARM`: từ 45 điểm; còn lại `COLD`.
+- `family`: có sở thích Gia đình; `budget`: có sở thích Tiết kiệm hoặc ngân sách ≤ 3.000.000 VND/người.
+- `resort`: có sở thích Nghỉ dưỡng; `explorer`: có sở thích Trekking, Khám phá hoặc Thiên nhiên.
+- Một lead có thể có nhiều `customer_traits`; `customer_segment` là nhóm ưu tiên đầu tiên. Không đủ tín hiệu thì dùng `general`.
+- Tín hiệu lượt xem/quay lại do trình duyệt cung cấp nên phù hợp cho demo/ưu tiên tham khảo, không dùng làm quyết định duy nhất.
 
-```json
-{
-  "lead_score": 80,
-  "lead_level": "HOT",
-  "voucher_code": "DNH-10P-2026",
-  "voucher_status": "PENDING",
-  "voucher_channel": "email"
-}
-```
+Không ghi đè các trường scoring này bằng một phép tính khác trong n8n. Nếu cần mô hình AI, lưu kết quả thành trường enrichment riêng, giữ lại score rule-based để đối chiếu.
 
-Mẫu logic đơn giản:
-- có email + phone => +20
-- có destination + budget => +20
-- có chọn tour => +20
-- có UTM source => +10
-- budget >= 5 triệu => +20
-- tổng >= 70 => HOT
+## 3. Ghi CRM / Google Sheets
 
-## 4) Gmail / SMTP node
+Thêm Google Sheets node dạng Append Row và ánh xạ tối thiểu:
 
-Gửi email với nội dung:
+`lead_id`, `created_at` (thời điểm xử lý nếu payload chưa có), `name`, `email`, `phone`, `destination`, `travel_date`, `budget`, `party_size`, `selected_tour_name`, `interests`, `lead_score`, `lead_level`, `score_signals`, `customer_segment`, `customer_traits`, `source`, `utm_source`, `utm_medium`, `utm_campaign`, `note`, `consent_to_contact`.
 
-- Subject: "VietJourney – Voucher du lịch của bạn"
-- To: `{{$json.email}}`
-- Body: "Xin chào ... Bạn nhận được mã voucher DNH-10P-2026"
+Đặt tên sheet là `Leads` và chỉ cho người được phân quyền truy cập vì sheet có dữ liệu liên hệ cá nhân.
 
-## 5) Google Sheets node
+## 4. Thông báo Sales và follow-up
 
-Columns cần có:
+- Dùng IF node để phân tuyến: `HOT` thông báo ngay cho Sales; `WARM` vào hàng đợi follow-up; `COLD` gửi nội dung chăm sóc phù hợp.
+- Gửi lead đến email/Slack/Telegram nội bộ. Chỉ gửi voucher marketing cho khách qua email khi có email và consent/chính sách phù hợp; form hiện đồng ý cho mục đích liên hệ tư vấn.
+- Tạo workflow Schedule riêng để kiểm tra các lead `PENDING`/chưa được Sales xử lý trong Supabase/CRM, nhắc Sales theo SLA và đánh dấu bước follow-up. Tránh gửi lặp bằng cách ghi `last_follow_up_at` hoặc trạng thái xử lý.
+- Dùng credential n8n cho Gmail, Google Sheets và kênh thông báo; không đặt credential trong Code node hoặc payload.
 
-- lead_id
-- name
-- email
-- phone
-- destination
-- budget
-- source
-- utm_source
-- utm_medium
-- utm_campaign
-- lead_score
-- lead_level
-- voucher_code
-- voucher_status
-- created_at
+## 5. Phản hồi webhook
 
-## 6) Slack / Telegram / Email sales
-
-Gửi thông báo cho sales:
-
-```text
-Lead HOT từ Facebook
-Tên: Nguyễn Văn A
-Email: nguyenvana@gmail.com
-Tour: Đà Nẵng - Hội An
-Voucher: DNH-10P-2026
-```
-
-## 7) Respond to Webhook
-
-Trả JSON cho backend:
+Sau khi bước thông báo đã được xác nhận, Respond to Webhook trả JSON:
 
 ```json
 {
+  "notification_sent": true,
   "email_sent": true,
   "lead_id": "{{$json.lead_id}}",
   "status": "ok"
 }
 ```
 
-Backend hiện tại sẽ nhận phản hồi này và cập nhật `notification_status = 'SENT'` nếu `email_sent` là `true`.
+`notification_sent` phản ánh xác nhận thông báo (ví dụ Sales đã nhận); nếu trường này không có, backend dùng `email_sent` để tương thích workflow cũ. Backend chuyển `notification_status` thành `SENT` khi trường được ưu tiên xác nhận `true`, `FAILED` khi trường được ưu tiên là `false`, và giữ `PENDING` nếu không có xác nhận. Không trả `true` trước khi workflow thực sự hoàn tất bước thông báo.
 
-## 8) Nếu muốn thêm Zalo OA
+## 6. Kiểm thử trước khi bật
 
-- Chỉ dùng khi đã có Zalo Official Account
-- Thêm node Zalo / HTTP Request gửi voucher nội dung theo template Zalo
-- Nếu chưa có OA, ưu tiên email trước rồi manual follow-up bằng sales
-
-## 9) Dữ liệu cần lưu theo nguồn marketing
-
-- `utm_source=facebook`
-- `utm_medium=organic_post`
-- `utm_campaign=danang_hoian`
-- `source=facebook`
-
-Nhờ đó bạn sẽ thống kê được:
-- total traffic
-- total lead
-- lead theo source
-- voucher đã gửi
-- lead HOT/WARM/COLD
-- conversion rate theo kênh marketing
+1. Gửi lead thử qua form với dữ liệu liên hệ đã được đồng ý sử dụng.
+2. Kiểm tra bản ghi Supabase trước: score/segment, UTM, `selected_tour_id`, `note`, `notification_status`.
+3. Kiểm tra Google Sheets và kênh Sales, sau đó xác nhận webhook trả `notification_sent: true`.
+4. Thử email không có và lỗi node; lead phải vẫn được lưu, không báo gửi thành công giả.
+5. Theo dõi các lead `PENDING` và cấu hình quy trình retry có chống gửi trùng.

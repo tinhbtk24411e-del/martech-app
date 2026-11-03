@@ -20,6 +20,7 @@
         <a href="#tours">Khám phá tour</a>
         <a href="#how-it-works">Cách hoạt động</a>
         <a href="#contact">Tư vấn</a>
+        <a href="dashboard.html">Dashboard demo</a>
         <a class="nav-cta" href="#contact">Gửi yêu cầu</a>
       </nav>
     </header>
@@ -34,7 +35,7 @@
             <a class="button coral" href="#tours">Xem các chuyến đi <span>→</span></a>
             <a class="button ghost" href="#contact">Nhờ tư vấn <span>♡</span></a>
           </div>
-          <div class="hero-proof"><span>✦ Hành trình có thật</span><i></i><span>♡ Tư vấn theo nhu cầu</span></div>
+          <div class="hero-proof"><span>✦ Tour trong catalog</span><i></i><span>♡ Tư vấn theo nhu cầu</span></div>
         </div>
         <div class="hero-search">
           <span class="search-mark" aria-hidden="true">✦</span>
@@ -70,7 +71,7 @@
           <div>
             <p class="eyebrow">GỢI Ý ĐANG CÓ</p>
             <h2>Chọn chuyến đi bạn thích</h2>
-            <p id="tourCount">Những hành trình đang mở bán từ VietJourney.</p>
+            <p id="tourCount">Tour tham khảo; giá và lịch khởi hành cần được VietJourney xác nhận.</p>
           </div>
           <a href="#contact" class="text-link">Chưa biết chọn? Tụi mình tư vấn nhé →</a>
         </div>
@@ -113,18 +114,20 @@
           <div class="form-grid">
             <label>Gọi bạn là gì nhỉ?<input name="name" required maxlength="120" placeholder="Tên của bạn"></label>
             <label>Email<input name="email" type="email" maxlength="160" placeholder="email@example.com"></label>
-            <label>Số điện thoại<input name="phone" required maxlength="40" placeholder="Số điện thoại để tụi mình liên hệ"></label>
+            <label>Số điện thoại<input name="phone" maxlength="40" placeholder="Số điện thoại để tụi mình liên hệ"></label>
+            <p class="contact-hint">Bạn chỉ cần cung cấp email hoặc số điện thoại.</p>
             <label>Zalo / WhatsApp (tùy chọn)<input name="zalo_phone" maxlength="40" placeholder="Nếu có"></label>
             <label>Điểm đến<input name="destination" required maxlength="100"></label>
             <label>Thời lượng (ngày)<input name="duration" type="number" min="1" max="60" required></label>
             <label>Ngân sách dự kiến/người (đồng)<input name="budget" type="number" min="0" required><small id="budgetPreview" class="field-hint">Ví dụ: 2,000,000 đồng/người.</small></label>
-            <label>Số người<input name="party_size" type="number" min="1" max="30" required value="2"></label>
+            <label>Số người<input name="party_size" type="number" min="1" max="30" required></label>
             <label>Ngày dự kiến<input name="travel_date" type="date"></label>
             <label>Tour quan tâm<input id="tourName" readonly placeholder="Chưa chọn tour"></label>
           </div>
           <fieldset><legend>Sở thích</legend><div id="leadInterests" class="chips"></div></fieldset>
           <label>Lời nhắn cho tụi mình<textarea name="note" maxlength="1000" rows="3" placeholder="Ví dụ: Mình đi cùng gia đình và thích gần biển..."></textarea></label>
           <label class="consent"><input name="consent_to_contact" type="checkbox" value="true" required> Tôi đồng ý để VietJourney liên hệ tư vấn về yêu cầu này.</label>
+          <label class="consent"><input name="behavior_tracking" type="checkbox" value="true"> Cho phép lưu tín hiệu xem tour và quay lại trên trình duyệt để cá nhân hóa tư vấn (tùy chọn).</label>
           <button class="button coral" type="submit">Gửi yêu cầu tư vấn</button>
           <p class="form-message" aria-live="polite"></p>
         </form>
@@ -145,6 +148,7 @@
       <div>
         <a href="#tours">Tour</a>
         <a href="#contact">Tư vấn chuyến đi</a>
+        <a href="dashboard.html">Dashboard demo</a>
         <a href="docs/README.md">Chính sách bảo mật</a>
       </div>
       <small>© 2026 VietJourney. Cùng bạn đi khắp Việt Nam.</small>
@@ -157,9 +161,12 @@
         <h2 id="dialogTitle"></h2>
         <p id="dialogPrice" class="price"></p>
         <p id="dialogOverview" class="dialog-overview"></p>
+        <div><h3>Lịch khởi hành</h3><p id="dialogDeparture" class="dialog-departure"></p></div>
         <div><h3>Lịch trình tham khảo</h3><div id="dialogItinerary" class="dialog-itinerary"></div></div>
         <div><h3>Điểm nổi bật</h3><ul id="dialogHighlights"></ul></div>
+        <div><h3>Phù hợp với</h3><ul id="dialogSuitableFor"></ul></div>
         <div><h3>Dịch vụ gồm</h3><ul id="dialogServices"></ul></div>
+        <div><h3>Dịch vụ chưa bao gồm</h3><ul id="dialogExcludedServices"></ul></div>
         <p class="dialog-note">Giá và lịch trình có thể thay đổi theo ngày đi, tình trạng dịch vụ và nhu cầu thực tế. Tụi mình sẽ xác nhận lại trước khi bạn đặt.</p>
         <button id="dialogChoose" class="button teal" type="button">Nhờ tư vấn tour này</button>
       </div>
@@ -184,7 +191,7 @@
           <input id="chatInput" maxlength="300" placeholder="Nhắn điều bạn đang tìm..." autocomplete="off">
           <button type="submit" aria-label="Gửi tin nhắn">➤</button>
         </form>
-        <p class="chat-footnote">Tin nhắn và thông tin chuyến đi bạn cung cấp sẽ được gửi đến AI qua OpenRouter để tạo phản hồi. Không gửi thông tin cá nhân nhạy cảm.</p>
+        <p class="chat-footnote">AI tư vấn dựa trên catalog tour tham khảo; giá và lịch khởi hành cần xác nhận. Tin nhắn được gửi qua OpenRouter. Không gửi thông tin cá nhân nhạy cảm.</p>
       </section>
       <button id="chatToggle" class="chat-toggle" type="button" aria-label="Mở trợ lý chuyến đi" aria-expanded="false" aria-controls="chatPanel">
         <span class="chat-toggle-icon" aria-hidden="true">✦</span><span>Hỏi tụi mình nhé</span><span class="chat-online" aria-hidden="true"></span>

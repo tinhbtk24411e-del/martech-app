@@ -1,4 +1,5 @@
 import { clean, list, method, number, send, tours, utmFields } from './_shared.js';
+import { scoreLead, understandCustomer } from './_scoring.js';
 
 export const config = { api: { bodyParser: { sizeLimit: '16kb' } } };
 
@@ -67,19 +68,20 @@ export default async function handler(req, res) {
   const partySize = number(b.party_size, 1, 30);
   const consent = b.consent_to_contact === true || b.consent_to_contact === 'true';
   const utm = normalizeUtm(b);
-  const leadScore = Number.isFinite(Number(b.lead_score)) ? Number(b.lead_score) : 0;
-  const leadLevel = clean(b.lead_level || 'NEW', 30) || 'NEW';
   const voucherCode = clean(b.voucher_code || '', 80);
   const voucherStatus = clean(b.voucher_status || 'PENDING', 30) || 'PENDING';
   const voucherChannel = clean(b.voucher_channel || 'email', 30) || 'email';
   const source = clean(b.source || b.lead_source || utm.utm_source || 'website', 60) || 'website';
 
-  if (!name || (!contact && !explicitPhone && !explicitEmail) || !destination || !duration || budget === null || !partySize || !consent) {
+  if (!name || (!explicitPhone && !explicitEmail) || !destination || !duration || budget === null || !partySize || !consent) {
     return send(res, 400, { error: 'Vui lòng điền đủ thông tin hợp lệ và đồng ý để chúng tôi liên hệ.' });
   }
 
-  if (contact.length < 6 && !explicitEmail && !explicitPhone) {
-    return send(res, 400, { error: 'Thông tin liên hệ chưa hợp lệ.' });
+  if (
+    (explicitEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(explicitEmail)) ||
+    (explicitPhone && explicitPhone.replace(/\D/g, '').length < 6)
+  ) {
+    return send(res, 400, { error: 'Email hoặc số điện thoại chưa hợp lệ.' });
   }
 
   const requestId = clean(req.headers['idempotency-key'] || b.request_id || '', 80) || crypto.randomUUID();
@@ -93,6 +95,20 @@ export default async function handler(req, res) {
     if (b.selected_tour_id && !selected) {
       return send(res, 400, { error: 'Tour được chọn không còn hợp lệ.' });
     }
+
+    const engagement = b.engagement && typeof b.engagement === 'object' && !Array.isArray(b.engagement)
+      ? b.engagement
+      : {};
+    const scored = scoreLead({
+      selectedTour: Boolean(selected),
+      tourViews: number(engagement.tour_views, 0, 100) ?? 0,
+      returnVisit: engagement.return_visit === true,
+    });
+    const understanding = understandCustomer({
+      interests: list(b.interests),
+      experienceTypes: selected?.experience_type || [],
+      budget,
+    });
 
     failure.stage = 'check_duplicate';
     const existingResponse = await supabase(`leads?request_id=eq.${encodeURIComponent(requestId)}&select=lead_id,notification_status`);
@@ -134,8 +150,11 @@ export default async function handler(req, res) {
       note: clean(b.note, 1000) || null,
       consent_to_contact: true,
       source,
-      lead_score: Math.max(0, Math.min(100, leadScore)),
-      lead_level: leadLevel,
+      lead_score: scored.score,
+      lead_level: scored.level,
+      score_signals: scored.signals,
+      customer_segment: understanding.segment,
+      customer_traits: understanding.traits,
       voucher_code: voucherCode || null,
       voucher_status: voucherStatus,
       voucher_channel: voucherChannel,
@@ -197,11 +216,15 @@ export default async function handler(req, res) {
             interests: row.interests,
             selected_tour_id: row.selected_tour_id,
             selected_tour_name: row.selected_tour_name,
+            note: row.note,
             consent_to_contact: true,
             lead_source: row.lead_source,
             source: row.source,
             lead_score: row.lead_score,
             lead_level: row.lead_level,
+            score_signals: row.score_signals,
+            customer_segment: row.customer_segment,
+            customer_traits: row.customer_traits,
             voucher_code: row.voucher_code,
             voucher_status: row.voucher_status,
             voucher_channel: row.voucher_channel,
@@ -226,13 +249,17 @@ export default async function handler(req, res) {
             status: webhook.status,
           });
         }
-        const ack = webhook.ok ? await webhook.json().catch(() => ({})) : {};
-        if (ack.email_sent === true) {
+        const ackPayload = webhook.ok ? await webhook.json().catch(() => ({})) : {};
+        const ack = ackPayload && typeof ackPayload === 'object' && !Array.isArray(ackPayload)
+          ? ackPayload
+          : {};
+        const notificationSent = ack.notification_sent ?? ack.email_sent;
+        if (notificationSent === true) {
           notificationStatus = 'SENT';
-        } else if (ack.email_sent === false) {
+        } else if (notificationSent === false) {
           notificationStatus = 'FAILED';
         } else {
-          console.error('[api/leads] Notification webhook response did not confirm email delivery', {
+          console.error('[api/leads] Notification webhook response did not confirm delivery', {
             status: webhook.status,
           });
         }

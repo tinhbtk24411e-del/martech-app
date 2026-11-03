@@ -1,19 +1,34 @@
-const interests = ['Khám phá', 'Nghỉ dưỡng', 'Ẩm thực', 'Chụp ảnh', 'Thiên nhiên', 'Trekking', 'Gia đình', 'Văn hóa'];
+const interests = ['Tiết kiệm', 'Khám phá', 'Nghỉ dưỡng', 'Ẩm thực', 'Chụp ảnh', 'Thiên nhiên', 'Trekking', 'Gia đình', 'Văn hóa'];
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
 let tours = [];
 let savedTours = [];
 let showSavedTours = false;
 let chatConversation = [];
 let chatRequestPending = false;
+let behaviorTrackingConsent = false;
+let returnVisit = false;
+let tourViewCount = 0;
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const SAVED_TOURS_KEY = 'vietjourney_saved_tours';
+const TRACKING_CONSENT_KEY = 'vietjourney_behavior_consent';
+const VISITOR_SEEN_KEY = 'vietjourney_seen';
+const FALLBACK_TOUR_IMAGE = 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=900&q=80';
 
 try {
   const saved = JSON.parse(localStorage.getItem(SAVED_TOURS_KEY) || '[]');
   savedTours = Array.isArray(saved) ? saved.filter((id) => typeof id === 'string') : [];
 } catch {
   savedTours = [];
+}
+
+try {
+  behaviorTrackingConsent = localStorage.getItem(TRACKING_CONSENT_KEY) === 'true';
+  returnVisit = behaviorTrackingConsent && localStorage.getItem(VISITOR_SEEN_KEY) === 'true';
+  if (behaviorTrackingConsent) localStorage.setItem(VISITOR_SEEN_KEY, 'true');
+} catch {
+  behaviorTrackingConsent = false;
+  returnVisit = false;
 }
 
 const money = (value) =>
@@ -101,9 +116,10 @@ function card(item) {
   const image = document.createElement('img');
   image.loading = 'lazy';
   image.alt = item.name || 'Tour VietJourney';
-  image.src = item.image || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=900&q=80';
+  image.src = item.image || FALLBACK_TOUR_IMAGE;
   image.onerror = () => {
-    image.src = 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=900&q=80';
+    image.onerror = null;
+    image.src = FALLBACK_TOUR_IMAGE;
   };
   element.append(image);
 
@@ -112,7 +128,7 @@ function card(item) {
   copy.innerHTML = `
     <div class="tour-meta">${sanitizeText(item.destination)} · ${sanitizeText(String(item.duration || ''))}</div>
     <h3>${sanitizeText(item.name)}</h3>
-    <div class="price">${money(item.price_per_person)}<small>/ người</small></div>
+    <div class="price">Giá tham khảo: ${money(item.price_per_person)}<small>/ người</small></div>
     <div>${(item.experience_type || item.highlights || []).slice(0, 3).map((value) => `<span class="tag">${sanitizeText(value)}</span>`).join('')}</div>
   `;
 
@@ -191,7 +207,7 @@ function renderTours() {
   const grid = $('#tourGrid');
   $('#tourCount').textContent = showSavedTours
     ? `${filtered.length} chuyến đi bạn đã lưu`
-    : `${filtered.length} hành trình đang mở bán từ VietJourney`;
+    : `${filtered.length} tour tham khảo; giá và lịch khởi hành cần xác nhận`;
   $('#savedCount').textContent = savedTours.length;
   grid.replaceChildren(
     ...(filtered.length
@@ -289,20 +305,25 @@ function selectTour(tour) {
   form.elements.destination.value = tour.destination || '';
   const length = duration(tour);
   if (length) form.elements.duration.value = length;
-  form.elements.budget.value = tour.price_per_person || '';
-  updateBudgetPreview();
   location.hash = 'contact';
-  setMessage(form, `Đã chọn “${tour.name}”. Hãy điền thông tin để được tư vấn.`, true);
+  setMessage(form, `Đã chọn “${tour.name}”. Hãy nhập ngân sách dự kiến của bạn để được tư vấn.`, true);
 }
 
 function showDetails(tour) {
+  if (behaviorTrackingConsent) tourViewCount = Math.min(tourViewCount + 1, 3);
   const dialog = $('#tourDialog');
-  $('#dialogImage').src = tour.image || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=900&q=80';
+  const dialogImage = $('#dialogImage');
+  dialogImage.onerror = () => { dialogImage.onerror = null; dialogImage.src = FALLBACK_TOUR_IMAGE; };
+  dialogImage.src = tour.image || FALLBACK_TOUR_IMAGE;
   $('#dialogImage').alt = tour.name || 'Tour VietJourney';
   $('#dialogMeta').textContent = `${tour.destination || 'Việt Nam'} · ${tour.duration || 'Linh hoạt'}`;
   $('#dialogTitle').textContent = tour.name;
-  $('#dialogPrice').textContent = `${money(tour.price_per_person)} / người`;
+  $('#dialogPrice').textContent = `Giá tham khảo: ${money(tour.price_per_person)} / người`;
   $('#dialogOverview').textContent = tour.overview || 'Liên hệ VietJourney để được giới thiệu chi tiết hành trình.';
+  const departures = Array.isArray(tour.departures) ? tour.departures : [];
+  $('#dialogDeparture').textContent = departures.length
+    ? `Lịch khởi hành tham khảo: ${departures.map((item) => typeof item === 'string' ? item : [item.date, item.status].filter(Boolean).join(' – ')).filter(Boolean).join(', ')}. Vui lòng xác nhận ngày và tình trạng chỗ với VietJourney.`
+    : 'Chưa có dữ liệu lịch khởi hành; vui lòng xác nhận với VietJourney.';
 
   const itinerary = Array.isArray(tour.itinerary) ? tour.itinerary : [];
   $('#dialogItinerary').replaceChildren(...(itinerary.length ? itinerary : [{
@@ -329,7 +350,9 @@ function showDetails(tour) {
 
   for (const [selector, items, fallback] of [
     ['#dialogHighlights', tour.highlights || [], 'Liên hệ để tìm hiểu thêm'],
-    ['#dialogServices', tour.included_services || [], 'Đội ngũ tư vấn sẽ chia sẻ chi tiết'],
+    ['#dialogSuitableFor', tour.suitable_for || [], 'Chưa có dữ liệu; cần xác nhận với VietJourney'],
+    ['#dialogServices', tour.included_services || [], 'Chưa có dữ liệu; cần xác nhận với VietJourney'],
+    ['#dialogExcludedServices', tour.excluded_services || [], 'Chưa có dữ liệu; cần xác nhận với VietJourney'],
   ]) {
     const list = $(selector);
     list.replaceChildren(...(items.length ? items : [fallback]).map((value) => {
@@ -376,6 +399,36 @@ function updateBudgetPreview() {
 
 $('#leadForm').elements.budget.addEventListener('input', updateBudgetPreview);
 
+const behaviorTrackingField = $('#leadForm').elements.behavior_tracking;
+behaviorTrackingField.checked = behaviorTrackingConsent;
+behaviorTrackingField.addEventListener('change', () => {
+  behaviorTrackingConsent = behaviorTrackingField.checked;
+  returnVisit = false;
+  tourViewCount = 0;
+
+  try {
+    if (behaviorTrackingConsent) {
+      localStorage.setItem(TRACKING_CONSENT_KEY, 'true');
+      localStorage.setItem(VISITOR_SEEN_KEY, 'true');
+    } else {
+      localStorage.removeItem(TRACKING_CONSENT_KEY);
+      localStorage.removeItem(VISITOR_SEEN_KEY);
+    }
+  } catch {
+    behaviorTrackingConsent = behaviorTrackingField.checked;
+  }
+});
+
+const leadEmail = $('#leadForm').elements.email;
+const leadPhone = $('#leadForm').elements.phone;
+const validateLeadContact = () => {
+  const missingContact = !leadEmail.value.trim() && !leadPhone.value.trim();
+  leadEmail.setCustomValidity(missingContact ? 'Vui lòng nhập email hoặc số điện thoại.' : '');
+  leadPhone.setCustomValidity(missingContact ? 'Vui lòng nhập email hoặc số điện thoại.' : '');
+};
+leadEmail.addEventListener('input', validateLeadContact);
+leadPhone.addEventListener('input', validateLeadContact);
+
 $('#destinationSearch').addEventListener('submit', (event) => {
   event.preventDefault();
   $('#destinationFilter').value = $('#destinationQuery').value;
@@ -405,6 +458,7 @@ function appendChatMessage(text, sender = 'bot') {
   message.textContent = text;
   $('#chatMessages').append(message);
   $('#chatMessages').scrollTop = $('#chatMessages').scrollHeight;
+  return message;
 }
 
 function normalizedText(text) {
@@ -427,6 +481,106 @@ function chatCustomerContext() {
     travel_date: fieldValue('travel_date'),
     interests: values('#leadInterests'),
   };
+}
+
+function addChatLeadAction(question, answer) {
+  const action = document.createElement('button');
+  action.type = 'button';
+  action.className = 'chat-consult-link';
+  action.textContent = 'Yêu cầu tư vấn hành trình này →';
+  action.addEventListener('click', () => prefillLeadFromChat(question, answer));
+  $('#chatMessages').append(action);
+  $('#chatMessages').scrollTop = $('#chatMessages').scrollHeight;
+}
+
+function prefillLeadFromChat(question, answer) {
+  const form = $('#leadForm');
+  const recentMessages = chatConversation
+    .filter((item) => item.role === 'user')
+    .slice(-5)
+    .map((item) => item.text);
+  const destinationMessages = [...recentMessages].reverse();
+  const normalizedMessages = destinationMessages.map(normalizedText);
+  let matchedTour;
+  for (const text of normalizedMessages) {
+    matchedTour = tours.find((tour) => text.includes(normalizedText(tour.name))) ||
+      tours.find((tour) => text.includes(normalizedText(tour.destination)));
+    if (matchedTour) break;
+  }
+  const setIfEmpty = (fieldName, value) => {
+    const field = form.elements.namedItem(fieldName);
+    if (field && !field.value && value) field.value = value;
+  };
+
+  if (matchedTour) {
+    setIfEmpty('destination', matchedTour.destination);
+    if (normalizedMessages.some((text) => text.includes(normalizedText(matchedTour.name)))) {
+      form.elements.selected_tour_id.value = matchedTour.id;
+      form.elements.selected_tour_name.value = matchedTour.name;
+      $('#tourName').value = matchedTour.name;
+    }
+  }
+
+  for (const text of destinationMessages) {
+    const normalized = normalizedText(text);
+    const durationMatch = normalized.match(/\b(\d{1,2})\s*ngay\b/i);
+    const partyMatch = normalized.match(/\b(\d{1,2})\s*(?:nguoi|khach)\b/i);
+    setIfEmpty('duration', durationMatch?.[1]);
+    setIfEmpty('party_size', partyMatch?.[1]);
+
+    const dateMatch = text.match(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})\b/);
+    if (dateMatch && !form.elements.travel_date.value) {
+      const date = dateMatch[1].includes('/')
+        ? dateMatch[1].split('/').reverse().map((part, index) => index === 0 ? part : part.padStart(2, '0')).join('-')
+        : dateMatch[1];
+      setIfEmpty('travel_date', date);
+    }
+
+    const perPersonBudget = normalized.match(/(\d+(?:[.,]\d+)*)\s*(trieu|tr|m|vnd|dong|d)\s*(?:\/\s*(?:nguoi|khach)|moi\s*(?:nguoi|khach))/i);
+    if (perPersonBudget && !form.elements.budget.value) {
+      const rawAmount = perPersonBudget[1];
+      const unit = perPersonBudget[2];
+      const amount = /^(triệu|tr|m)$/.test(unit)
+        ? Number(rawAmount.replace(',', '.')) * 1_000_000
+        : Number(rawAmount.replace(/[.,]/g, ''));
+      if (Number.isFinite(amount) && amount > 0) {
+        setIfEmpty('budget', String(Math.round(amount)));
+        updateBudgetPreview();
+      }
+    }
+
+    for (const interest of interests) {
+      if (normalized.includes(normalizedText(interest))) {
+        const chip = [...$('#leadInterests').querySelectorAll('.chip')]
+          .find((item) => item.textContent === interest);
+        chip?.classList.add('active');
+      }
+    }
+  }
+
+  if (matchedTour) {
+    const days = Number(String(matchedTour.duration).match(/\d+/)?.[0]);
+    setIfEmpty('duration', String(days || ''));
+  }
+
+  const transcript = [
+    'Nội dung tư vấn AI (tham khảo, cần VietJourney xác nhận):',
+    `Khách hỏi: ${sanitizeText(question, 180)}`,
+    `Đề xuất AI: ${sanitizeText(answer, 600)}`,
+  ].join('\n');
+  const note = form.elements.namedItem('note');
+  const existingNote = note.value.trim();
+  note.value = [
+    existingNote ? sanitizeText(existingNote, 150) : '',
+    transcript,
+  ].filter(Boolean).join('\n\n').slice(0, 1000);
+  setMessage(form, 'Đã điền nội dung tư vấn vào form. Bạn kiểm tra thông tin, bổ sung liên hệ và đồng ý trước khi gửi nhé.', 'warning');
+  location.hash = 'contact';
+  $('#contact').scrollIntoView({ behavior: 'smooth' });
+  const missingField = ['name', 'email', 'phone', 'destination', 'duration', 'budget']
+    .map((name) => form.elements.namedItem(name))
+    .find((field) => field && !field.value);
+  (missingField || form.elements.namedItem('name')).focus({ preventScroll: true });
 }
 
 async function sendChatMessage(query) {
@@ -484,6 +638,7 @@ async function sendChatMessage(query) {
     );
     chatConversation = chatConversation.slice(-10);
     appendChatMessage(data.reply.trim());
+    addChatLeadAction(query, data.reply.trim());
   } catch (error) {
     const message = error instanceof TypeError
       ? 'Không kết nối được với AI. Bạn thử lại sau nhé.'
@@ -532,6 +687,8 @@ $$('[data-chat-prompt]').forEach((button) => {
 $('#leadForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
+  validateLeadContact();
+  if (!form.reportValidity()) return;
   const payload = fieldData(form);
   payload.consent_to_contact = form.elements.consent_to_contact.checked;
   payload.interests = values('#leadInterests');
@@ -547,8 +704,10 @@ $('#leadForm').addEventListener('submit', async (event) => {
   const utm = getCurrentUtm();
   Object.assign(payload, utm);
   payload.source = payload.source || utm.utm_source || 'website';
-  payload.lead_score = Number(payload.lead_score || 0);
-  payload.lead_level = payload.lead_level || 'NEW';
+  payload.engagement = {
+    tour_views: behaviorTrackingConsent ? tourViewCount : 0,
+    return_visit: behaviorTrackingConsent && returnVisit,
+  };
   payload.voucher_status = payload.voucher_status || 'PENDING';
   payload.voucher_channel = payload.voucher_channel || 'email';
 
@@ -569,15 +728,16 @@ $('#leadForm').addEventListener('submit', async (event) => {
     if (!response.ok) throw new Error(data.error || 'Không thể gửi yêu cầu. Vui lòng thử lại.');
 
     const notificationMessage = data.notification_status === 'SENT'
-      ? ' Email xác nhận đã được gửi.'
+      ? ' Thông báo cho đội ngũ đã được gửi.'
       : data.notification_status === 'FAILED'
-        ? ' n8n báo email chưa gửi được; đội ngũ sẽ kiểm tra lại.'
-        : ' Email có thể đã gửi, nhưng hệ thống chưa nhận được xác nhận từ n8n.';
+        ? ' n8n báo thông báo chưa gửi được; đội ngũ sẽ kiểm tra lại.'
+        : ' Yêu cầu đã lưu; hệ thống chưa nhận được xác nhận thông báo từ n8n.';
     const messageStatus = data.notification_status === 'SENT'
       ? true
       : data.notification_status === 'PENDING' ? 'warning' : false;
     setMessage(form, `Yêu cầu đã được ghi nhận.${notificationMessage} Mã Lead ID: ${data.lead_id}`, messageStatus);
     form.reset();
+    behaviorTrackingField.checked = behaviorTrackingConsent;
     $('#tourName').value = '';
     updateBudgetPreview();
   } catch (error) {

@@ -1,0 +1,66 @@
+:root {
+  color-scheme: light;
+  --navy: #10254f;
+  --blue: #1f5eff;
+  --muted: #64728a;
+  --line: #e0e8f4;
+  --bg: #f4f7fb;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--navy); font-family: "Segoe UI", Arial, sans-serif; line-height: 1.5; }
+a { color: inherit; text-decoration: none; }
+button, select { font: inherit; }
+.dashboard-header { height: 68px; padding: 0 max(5vw, 22px); display: flex; justify-content: space-between; align-items: center; background: #fff; border-bottom: 1px solid var(--line); }
+.dashboard-header > a:last-child { color: var(--blue); font-weight: 650; }
+.brand { display: flex; align-items: center; gap: 9px; font-size: 1.2rem; font-weight: 800; color: var(--blue); }
+.brand span { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: var(--blue); color: white; font-size: .8rem; }
+main { width: min(1200px, calc(100% - 40px)); margin: 42px auto 70px; }
+.intro { margin-bottom: 22px; }
+.eyebrow { margin: 0 0 8px; color: var(--blue); font-size: .7rem; font-weight: 800; letter-spacing: .16em; }
+h1, h2, p { margin-top: 0; }
+h1 { margin-bottom: 10px; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.05em; }
+.intro > p:not(.eyebrow) { max-width: 760px; color: var(--muted); }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 22px; }
+.toolbar label { font-weight: 700; }
+.toolbar select, .toolbar button { min-height: 42px; padding: 0 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--navy); }
+.toolbar button { border-color: var(--blue); background: var(--blue); color: #fff; font-weight: 700; cursor: pointer; }
+.assumptions, .panel { padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: #fff; box-shadow: 0 8px 26px rgba(15,35,80,.05); }
+.assumptions { margin-bottom: 18px; background: #f0f6ff; }
+.assumptions h2 { margin-bottom: 8px; font-size: 1rem; }
+.assumptions ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 28px; margin: 0; padding-left: 20px; color: #40506b; font-size: .86rem; }
+.kpi-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.kpi-card { min-height: 124px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: white; }
+.kpi-card p { margin-bottom: 8px; color: var(--muted); font-size: .84rem; font-weight: 650; }
+.kpi-card strong { display: block; font-size: clamp(1.35rem, 2.4vw, 1.9rem); letter-spacing: -.04em; }
+.kpi-card small { color: var(--muted); }
+.panel { margin-bottom: 18px; }
+.panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 20px; }
+.panel-heading h2 { margin: 0; font-size: 1.35rem; }
+.panel-heading > span { color: var(--muted); font-size: .82rem; }
+.funnel { display: grid; gap: 12px; }
+.funnel-row { display: grid; grid-template-columns: 128px minmax(100px, 1fr) 100px 100px; align-items: center; gap: 12px; font-size: .88rem; }
+.funnel-label { font-weight: 700; }
+.bar-track { height: 18px; overflow: hidden; border-radius: 999px; background: #edf2fa; }
+.bar { height: 100%; min-width: 2px; border-radius: inherit; background: linear-gradient(90deg, #1f5eff, #48b6a9); }
+.funnel-count { text-align: right; font-weight: 750; }
+.funnel-rate { color: var(--muted); text-align: right; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: .82rem; }
+th, td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: right; }
+th { color: var(--muted); font-size: .73rem; text-transform: uppercase; letter-spacing: .04em; }
+th:first-child, td:first-child { text-align: left; }
+tbody tr:last-child td { border-bottom: 0; }
+footer { padding: 22px; color: var(--muted); text-align: center; font-size: .82rem; }
+@media (max-width: 760px) {
+  .assumptions ul { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .funnel-row { grid-template-columns: 95px minmax(70px, 1fr) 74px; gap: 8px; }
+  .funnel-rate { display: none; }
+  .panel { padding: 16px; }
+}
+@media (max-width: 440px) {
+  main { width: min(100% - 24px, 1200px); margin-top: 26px; }
+  .kpi-grid { grid-template-columns: 1fr; }
+  .dashboard-header { padding: 0 14px; }
+}

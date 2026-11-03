@@ -7,11 +7,15 @@
 3. Thêm dữ liệu tour chính thức vào `data/tours.json` (xem schema bên dưới).
 4. `npm run dev`
 
-Tour chỉ hiển thị khi `tour_status` là `active`. Danh sách hiện có cả gói tham khảo mới; hãy xác minh giá, dịch vụ và lịch trình với đơn vị vận hành trước khi dùng làm thông tin bán chính thức. Giá trên website hiển thị theo dạng `2,000,000 đồng` mỗi người.
+Tour chỉ hiển thị khi `tour_status` là `active`. Catalog hiện có 10 tour mẫu đang hoạt động; các tour còn lại được giữ ở trạng thái `draft`. Giá, ngày khởi hành, nhóm khách phù hợp, dịch vụ và lịch trình trong catalog đều là dữ liệu minh họa, cần xác nhận với đơn vị vận hành trước khi dùng làm thông tin bán chính thức. Mỗi tour có `departures`, `suitable_for`, `included_services` và `excluded_services`. Giá trên website hiển thị theo dạng `2,000,000 đồng` mỗi người.
 
 ```json
-[{"id":"official-id","name":"Tên tour chính thức","destination":"Điểm đến","duration":"3 ngày 2 đêm","price_per_person":5000000,"currency":"VND","tour_status":"active","image":"https://...","overview":"Mô tả hành trình","itinerary":[{"day":"Ngày 1","title":"Tên ngày","activities":["Hoạt động tham khảo"]}],"included_services":["..."],"highlights":["..."],"experience_type":["Thiên nhiên"]}]
+[{"id":"official-id","name":"Tên tour chính thức","destination":"Điểm đến","duration":"3 ngày 2 đêm","price_per_person":5000000,"currency":"VND","tour_status":"active","image":"https://...","overview":"Mô tả hành trình","departures":[{"date":"2027-01-10","status":"Lịch mẫu - cần xác nhận"}],"suitable_for":["Nhóm khách phù hợp"],"included_services":["..."],"excluded_services":["..."],"highlights":["..."],"experience_type":["Thiên nhiên"],"itinerary":[{"day":"Ngày 1","title":"Tên ngày","activities":["Hoạt động tham khảo"]}]}]
 ```
+
+## Dashboard KPI demo
+
+Mở [Dashboard KPI](../dashboard.html) để xem funnel và KPI 6 tháng giả lập. Nút tải CSV tạo file có thể mở bằng Excel; giả định về conversion, CAC và LTV được ghi trực tiếp trên trang và trong file.
 
 ## Deploy Vercel
 

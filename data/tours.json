@@ -16,7 +16,14 @@
       {"day":"Ngày 2","title":"Đồng Văn – Mã Pí Lèng","activities":["Dạo phố cổ Đồng Văn","Ngắm cảnh đèo Mã Pí Lèng","Trải nghiệm văn hóa địa phương"]},
       {"day":"Ngày 3","title":"Trở về Hà Giang","activities":["Tham quan điểm dừng trên cung đường về","Kết thúc hành trình tại Hà Giang"]}
     ],
-    "experience_type": ["Thiên nhiên", "Trekking"]
+    "experience_type": ["Thiên nhiên", "Trekking"],
+    "departures": [
+      {"date":"2026-12-05","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2026-12-19","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-01-09","status":"Lịch mẫu - cần xác nhận"}
+    ],
+    "suitable_for": ["Nhóm bạn thích khám phá và trekking", "Du khách muốn trải nghiệm văn hóa vùng cao"],
+    "excluded_services": ["Vé máy bay hoặc phương tiện đến Hà Giang", "Bữa trưa và bữa tối", "Chi phí cá nhân"]
   },
   {
     "id": "ninh-binh-scenic",
@@ -34,7 +41,14 @@
       {"day":"Ngày 1","title":"Non nước Tràng An","activities":["Tham quan quần thể Tràng An","Ngồi thuyền khám phá cảnh quan sông nước","Nghỉ đêm tại Ninh Bình"]},
       {"day":"Ngày 2","title":"Tam Cốc và chia tay Ninh Bình","activities":["Khám phá Tam Cốc","Thưởng thức đặc sản địa phương","Kết thúc hành trình"]}
     ],
-    "experience_type": ["Văn hóa", "Nghỉ dưỡng"]
+    "experience_type": ["Văn hóa", "Nghỉ dưỡng"],
+    "departures": [
+      {"date":"2026-12-12","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-01-16","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-02-20","status":"Lịch mẫu - cần xác nhận"}
+    ],
+    "suitable_for": ["Gia đình và nhóm bạn", "Du khách thích cảnh quan và di sản văn hóa"],
+    "excluded_services": ["Phương tiện đến Ninh Bình", "Bữa trưa và bữa tối", "Chi phí cá nhân"]
   },
   {
     "id": "hanoi-halong",
@@ -54,7 +68,14 @@
       {"day":"Ngày 3","title":"Khám phá vịnh","activities":["Tham quan các điểm trên vịnh theo lịch tàu","Thưởng ngoạn cảnh quan đảo đá","Trở về khu vực đất liền"]},
       {"day":"Ngày 4","title":"Tạm biệt Hà Nội","activities":["Tự do mua sắm hoặc nghỉ ngơi","Kết thúc hành trình"]}
     ],
-    "experience_type": ["Gia đình", "Ẩm thực"]
+    "experience_type": ["Gia đình", "Ẩm thực"],
+    "departures": [
+      {"date":"2026-12-06","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-01-10","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-02-14","status":"Lịch mẫu - cần xác nhận"}
+    ],
+    "suitable_for": ["Gia đình nhiều thế hệ", "Du khách quan tâm ẩm thực và văn hóa đô thị"],
+    "excluded_services": ["Vé máy bay đến Hà Nội", "Bữa ăn không nêu trong chương trình", "Chi phí cá nhân"]
   },
   {
     "id": "da-nang-hoi-an",
@@ -74,7 +95,14 @@
       {"day":"Ngày 3","title":"Phố cổ Hội An","activities":["Di chuyển đến Hội An","Dạo phố cổ và các hội quán","Thưởng thức món ăn địa phương"]},
       {"day":"Ngày 4","title":"Khép lại chuyến đi","activities":["Tự do mua sắm hoặc nghỉ ngơi","Kết thúc hành trình"]}
     ],
-    "experience_type": ["Nghỉ dưỡng", "Ẩm thực"]
+    "experience_type": ["Nghỉ dưỡng", "Ẩm thực"],
+    "departures": [
+      {"date":"2026-12-10","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-01-14","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-02-18","status":"Lịch mẫu - cần xác nhận"}
+    ],
+    "suitable_for": ["Cặp đôi và nhóm bạn thích biển", "Gia đình muốn kết hợp nghỉ ngơi và khám phá"],
+    "excluded_services": ["Vé máy bay đến Đà Nẵng", "Bữa trưa và bữa tối", "Chi phí cá nhân"]
   },
   {
     "id": "mekong-delta",
@@ -92,7 +120,14 @@
       {"day":"Ngày 1","title":"Về miền Tây","activities":["Đến Cần Thơ và nhận phòng","Thăm vườn trái cây theo chương trình","Thưởng thức bữa tối địa phương"]},
       {"day":"Ngày 2","title":"Chợ nổi và chia tay","activities":["Tham quan chợ nổi buổi sáng","Tìm hiểu nhịp sống ven sông","Kết thúc hành trình"]}
     ],
-    "experience_type": ["Thiên nhiên", "Văn hóa"]
+    "experience_type": ["Thiên nhiên", "Văn hóa"],
+    "departures": [
+      {"date":"2026-12-05","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-01-09","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-02-06","status":"Lịch mẫu - cần xác nhận"}
+    ],
+    "suitable_for": ["Gia đình và nhóm bạn", "Du khách muốn trải nghiệm văn hóa sông nước"],
+    "excluded_services": ["Phương tiện đến Cần Thơ", "Bữa ăn không nêu trong chương trình", "Chi phí cá nhân"]
   },
   {
     "id": "phu-quoc-island",
@@ -113,7 +148,14 @@
       {"day":"Ngày 4","title":"Ngày nghỉ theo sở thích","activities":["Tự do nghỉ dưỡng hoặc chọn hoạt động phù hợp","Thưởng thức ẩm thực trên đảo"]},
       {"day":"Ngày 5","title":"Tạm biệt Phú Quốc","activities":["Tự do buổi sáng","Kết thúc hành trình"]}
     ],
-    "experience_type": ["Nghỉ dưỡng", "Thiên nhiên"]
+    "experience_type": ["Nghỉ dưỡng", "Thiên nhiên"],
+    "departures": [
+      {"date":"2026-12-07","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-01-11","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-02-15","status":"Lịch mẫu - cần xác nhận"}
+    ],
+    "suitable_for": ["Cặp đôi và gia đình thích nghỉ dưỡng biển", "Du khách muốn kết hợp thư giãn và hoạt động ngoài trời"],
+    "excluded_services": ["Vé máy bay đến Phú Quốc", "Bữa trưa và bữa tối", "Chi phí cá nhân"]
   },
   {
     "id": "sapa-mountain",
@@ -132,7 +174,14 @@
       {"day":"Ngày 2","title":"Bản làng và ruộng bậc thang","activities":["Đi bộ khám phá bản làng theo lịch trình","Ngắm cảnh núi rừng và ruộng bậc thang","Tìm hiểu văn hóa địa phương"]},
       {"day":"Ngày 3","title":"Tạm biệt vùng cao","activities":["Tự do buổi sáng hoặc chọn hoạt động phù hợp","Kết thúc hành trình"]}
     ],
-    "experience_type": ["Trekking", "Thiên nhiên"]
+    "experience_type": ["Trekking", "Thiên nhiên"],
+    "departures": [
+      {"date":"2026-12-11","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-01-15","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-02-19","status":"Lịch mẫu - cần xác nhận"}
+    ],
+    "suitable_for": ["Nhóm bạn yêu thích trekking và khí hậu vùng núi", "Du khách có thể lực phù hợp với hoạt động đi bộ"],
+    "excluded_services": ["Vé tàu hoặc phương tiện đến Lào Cai", "Bữa trưa và bữa tối", "Chi phí cá nhân"]
   },
   {
     "id": "hue-heritage",
@@ -150,7 +199,14 @@
       {"day":"Ngày 1","title":"Dạo bước trong Hoàng thành","activities":["Tham quan Đại Nội Huế","Tìm hiểu kiến trúc và lịch sử cố đô","Thưởng thức món ăn địa phương"]},
       {"day":"Ngày 2","title":"Dấu xưa bên dòng Hương","activities":["Tham quan một số lăng tẩm theo chương trình","Ngắm cảnh sông Hương","Kết thúc hành trình"]}
     ],
-    "experience_type": ["Văn hóa", "Ẩm thực"]
+    "experience_type": ["Văn hóa", "Ẩm thực"],
+    "departures": [
+      {"date":"2026-12-13","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-01-17","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-02-21","status":"Lịch mẫu - cần xác nhận"}
+    ],
+    "suitable_for": ["Gia đình và nhóm bạn", "Du khách yêu thích lịch sử, kiến trúc và ẩm thực"],
+    "excluded_services": ["Vé máy bay hoặc phương tiện đến Huế", "Bữa trưa và bữa tối", "Chi phí cá nhân"]
   },
   {
     "id": "da-lat-slow-days",
@@ -169,7 +225,14 @@
       {"day":"Ngày 2","title":"Sắc hoa và đồi thông","activities":["Tham quan vườn hoa theo chương trình","Ngắm cảnh đồi thông","Thưởng thức cà phê địa phương"]},
       {"day":"Ngày 3","title":"Buổi sáng thong thả","activities":["Tự do ăn sáng và mua đặc sản","Kết thúc hành trình"]}
     ],
-    "experience_type": ["Nghỉ dưỡng", "Thiên nhiên"]
+    "experience_type": ["Nghỉ dưỡng", "Thiên nhiên"],
+    "departures": [
+      {"date":"2026-12-08","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-01-12","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-02-16","status":"Lịch mẫu - cần xác nhận"}
+    ],
+    "suitable_for": ["Cặp đôi và gia đình thích nhịp đi chậm", "Du khách muốn nghỉ dưỡng kết hợp khám phá thiên nhiên"],
+    "excluded_services": ["Vé máy bay đến Đà Lạt", "Bữa trưa và bữa tối", "Chi phí cá nhân"]
   },
   {
     "id": "quy-nhon-coast",
@@ -188,7 +251,14 @@
       {"day":"Ngày 2","title":"Theo gió ra miền biển","activities":["Tham quan Eo Gió theo lịch trình","Khám phá khu vực biển đảo phù hợp điều kiện thực tế","Trở về thành phố"]},
       {"day":"Ngày 3","title":"Chào Quy Nhơn","activities":["Tự do buổi sáng","Mua đặc sản và kết thúc hành trình"]}
     ],
-    "experience_type": ["Nghỉ dưỡng", "Thiên nhiên", "Ẩm thực"]
+    "experience_type": ["Nghỉ dưỡng", "Thiên nhiên", "Ẩm thực"],
+    "departures": [
+      {"date":"2026-12-09","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-01-13","status":"Lịch mẫu - cần xác nhận"},
+      {"date":"2027-02-17","status":"Lịch mẫu - cần xác nhận"}
+    ],
+    "suitable_for": ["Cặp đôi và nhóm bạn yêu thích biển", "Du khách muốn kết hợp nghỉ dưỡng và khám phá địa phương"],
+    "excluded_services": ["Vé máy bay đến Quy Nhơn", "Bữa trưa và bữa tối", "Chi phí cá nhân"]
   },
   {
     "id": "mui-ne-sunrise",
@@ -197,7 +267,7 @@
     "duration": "2 ngày 1 đêm",
     "price_per_person": 2650000,
     "currency": "VND",
-    "tour_status": "active",
+    "tour_status": "draft",
     "image": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=900&q=80",
     "included_services": ["Khách sạn", "Bữa sáng", "Xe tham quan theo lịch", "Tư vấn hoạt động địa phương"],
     "highlights": ["Đồi cát", "Bãi biển", "Làng chài", "Hải sản"],
@@ -215,7 +285,7 @@
     "duration": "3 ngày 2 đêm",
     "price_per_person": 5450000,
     "currency": "VND",
-    "tour_status": "active",
+    "tour_status": "draft",
     "image": "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=900&q=80",
     "included_services": ["Lưu trú", "Bữa sáng", "Hướng dẫn viên", "Vé tham quan theo chương trình"],
     "highlights": ["Động Phong Nha", "Sông Son", "Vườn quốc gia", "Cảnh quan karst"],
@@ -234,7 +304,7 @@
     "duration": "3 ngày 2 đêm",
     "price_per_person": 4950000,
     "currency": "VND",
-    "tour_status": "active",
+    "tour_status": "draft",
     "image": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
     "included_services": ["Lưu trú", "Bữa sáng", "Hướng dẫn địa phương", "Hoạt động trải nghiệm theo lịch"],
     "highlights": ["Ruộng bậc thang", "Bản làng", "Guồng nước", "Không gian nghỉ dưỡng"],
@@ -253,7 +323,7 @@
     "duration": "3 ngày 2 đêm",
     "price_per_person": 9250000,
     "currency": "VND",
-    "tour_status": "active",
+    "tour_status": "draft",
     "image": "https://images.unsplash.com/photo-1561361513-2d000a50f0dc?auto=format&fit=crop&w=900&q=80",
     "included_services": ["Lưu trú", "Bữa sáng", "Xe tham quan theo lịch", "Hỗ trợ tư vấn điểm đến"],
     "highlights": ["Bãi biển", "Cảnh quan đảo", "Di tích lịch sử", "Ẩm thực địa phương"],
@@ -272,7 +342,7 @@
     "duration": "4 ngày 3 đêm",
     "price_per_person": 7850000,
     "currency": "VND",
-    "tour_status": "active",
+    "tour_status": "draft",
     "image": "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=900&q=80",
     "included_services": ["Xe đưa đón", "Lưu trú", "Hướng dẫn viên", "Bữa sáng"],
     "highlights": ["Thác Bản Giốc", "Động Ngườm Ngao", "Hồ Thang Hen", "Ẩm thực vùng cao"],
@@ -292,7 +362,7 @@
     "duration": "2 ngày 1 đêm",
     "price_per_person": 2950000,
     "currency": "VND",
-    "tour_status": "active",
+    "tour_status": "draft",
     "image": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
     "included_services": ["Lưu trú", "Bữa sáng", "Xe tham quan theo lịch", "Hỗ trợ tư vấn địa phương"],
     "highlights": ["Đồi chè", "Thác nước", "Bản làng", "Đặc sản cao nguyên"],
@@ -310,7 +380,7 @@
     "duration": "1 ngày",
     "price_per_person": 1850000,
     "currency": "VND",
-    "tour_status": "active",
+    "tour_status": "draft",
     "image": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=900&q=80",
     "included_services": ["Xe đưa đón theo chương trình", "Hướng dẫn viên", "Bữa trưa", "Bảo hiểm du lịch"],
     "highlights": ["Núi Bà Đen", "Cáp treo tùy chọn", "Ẩm thực Tây Ninh", "Đi về trong ngày"],
