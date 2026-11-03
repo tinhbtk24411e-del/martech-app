@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -119,4 +120,25 @@ export function utmFields(input) {
   }
 
   return values;
+}
+
+export const LEAD_STATUSES = ['NEW', 'CONTACTED', 'QUOTED', 'BOOKED', 'LOST'];
+
+const LEAD_TRANSITIONS = {
+  NEW: ['CONTACTED', 'LOST'],
+  CONTACTED: ['QUOTED', 'LOST'],
+  QUOTED: ['BOOKED', 'LOST', 'CONTACTED'],
+  BOOKED: [],
+  LOST: ['CONTACTED'],
+};
+
+export function canTransition(from, to) {
+  return from === to || (LEAD_TRANSITIONS[from] || []).includes(to);
+}
+
+export function secretMatches(provided, expected) {
+  if (!expected || typeof provided !== 'string') return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }

@@ -1,0 +1,103 @@
+import { supabase } from './_supabase.js';
+
+const TIMEOUT_MS = 15_000;
+
+export function automationPayload(row) {
+  return {
+    lead_id: row.lead_id,
+    name: row.name,
+    contact: row.contact,
+    email: row.email || null,
+    phone: row.phone || null,
+    zalo_phone: row.zalo_phone || null,
+    destination: row.destination,
+    duration: row.duration,
+    budget: row.budget,
+    party_size: row.party_size,
+    travel_date: row.travel_date || null,
+    interests: row.interests || [],
+    selected_tour_id: row.selected_tour_id || null,
+    selected_tour_name: row.selected_tour_name || null,
+    note: row.note || null,
+    consent_to_contact: true,
+    lead_source: row.lead_source,
+    source: row.source,
+    lead_score: row.lead_score,
+    lead_level: row.lead_level,
+    score_signals: row.score_signals,
+    customer_segment: row.customer_segment,
+    customer_traits: row.customer_traits,
+    voucher_code: row.voucher_code || null,
+    voucher_status: row.voucher_status,
+    voucher_channel: row.voucher_channel,
+    utm_source: row.utm_source,
+    utm_medium: row.utm_medium,
+    utm_campaign: row.utm_campaign,
+    utm_content: row.utm_content,
+    utm_term: row.utm_term,
+  };
+}
+
+// Returns 'SENT' | 'FAILED' | 'PENDING'. Only n8n's explicit acknowledgment
+// produces SENT or FAILED; anything else stays PENDING for the retry job.
+export async function deliverToAutomation(lead) {
+  const url = process.env.N8N_WEBHOOK_URL;
+  if (!url) {
+    console.error('[notify] Notification webhook is not configured');
+    return 'PENDING';
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  let webhook;
+
+  try {
+    webhook = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Automation-Secret': process.env.N8N_WEBHOOK_SECRET || '',
+      },
+      signal: controller.signal,
+      body: JSON.stringify(automationPayload(lead)),
+    });
+  } catch (error) {
+    console.error('[notify] Notification webhook request failed', { errorCode: error?.name || 'UNKNOWN' });
+    return 'PENDING';
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!webhook.ok) {
+    console.error('[notify] Notification webhook returned an error', { status: webhook.status });
+    return 'PENDING';
+  }
+
+  const ack = await webhook.json().catch(() => ({}));
+  const body = ack && typeof ack === 'object' && !Array.isArray(ack) ? ack : {};
+  const confirmed = body.notification_sent ?? body.email_sent;
+
+  if (confirmed === true) return 'SENT';
+  if (confirmed === false) return 'FAILED';
+
+  console.error('[notify] Notification webhook response did not confirm delivery', { status: webhook.status });
+  return 'PENDING';
+}
+
+export async function updateNotificationStatus(leadId, status) {
+  try {
+    const response = await supabase(`leads?lead_id=eq.${encodeURIComponent(leadId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notification_status: status }),
+    });
+    if (!response.ok) {
+      console.error('[notify] Notification status update failed', { status: response.status });
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('[notify] Notification status update failed', { errorCode: error?.name || 'UNKNOWN' });
+    return false;
+  }
+}

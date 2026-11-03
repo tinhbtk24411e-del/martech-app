@@ -1,0 +1,47 @@
+{
+  "dataset": "SIMULATED — phục vụ học thuật, không phải dữ liệu CRM thực",
+  "currency": "VND",
+  "source_notes": {
+    "avg_booking_value": "Trung bình price_per_person của 10 tour active trong data/tours.json = 5.835.000 VND",
+    "purchases_per_customer": "Giả định khách đặt trung bình 1,25 tour trong vòng đời (không có dữ liệu thực)",
+    "marketing_spend_per_month": "Giả định ngân sách cố định; không tính chi phí nhân sự và giá vốn tour"
+  },
+  "scenarios": {
+    "base": {
+      "label": "Kịch bản cơ sở",
+      "visitors_per_month": 10000,
+      "lead_rate": 0.03,
+      "mql_rate": 0.40,
+      "sql_rate": 0.50,
+      "customer_rate": 0.25,
+      "avg_booking_value": 5835000,
+      "purchases_per_customer": 1.25,
+      "marketing_spend_per_month": 20000000,
+      "monthly_growth": 0.05
+    },
+    "good": {
+      "label": "Kịch bản tốt",
+      "visitors_per_month": 12000,
+      "lead_rate": 0.04,
+      "mql_rate": 0.45,
+      "sql_rate": 0.55,
+      "customer_rate": 0.25,
+      "avg_booking_value": 5835000,
+      "purchases_per_customer": 1.25,
+      "marketing_spend_per_month": 20000000,
+      "monthly_growth": 0.05
+    },
+    "weak": {
+      "label": "Kịch bản kém",
+      "visitors_per_month": 8000,
+      "lead_rate": 0.02,
+      "mql_rate": 0.30,
+      "sql_rate": 0.40,
+      "customer_rate": 0.20,
+      "avg_booking_value": 5835000,
+      "purchases_per_customer": 1.25,
+      "marketing_spend_per_month": 20000000,
+      "monthly_growth": 0.05
+    }
+  }
+}

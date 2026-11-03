@@ -1,38 +1,13 @@
 import { clean, list, method, number, send, tours, utmFields } from './_shared.js';
 import { scoreLead, understandCustomer } from './_scoring.js';
+import { supabase, supabaseErrorCode } from './_supabase.js';
+import { deliverToAutomation, updateNotificationStatus } from './_notify.js';
 
 export const config = { api: { bodyParser: { sizeLimit: '16kb' } } };
 
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
 const SCORING_COLUMNS = ['score_signals', 'customer_segment', 'customer_traits'];
-
-const supabase = async (endpoint, options = {}) => {
-  const base = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SECRET_KEY;
-
-  if (!base || !key) {
-    const error = new Error('Supabase is not configured');
-    error.code = 'SUPABASE_NOT_CONFIGURED';
-    throw error;
-  }
-
-  const headers = {
-    apikey: key,
-    'Content-Type': 'application/json',
-    ...(options.headers || {}),
-  };
-
-  return fetch(`${base.replace(/\/$/, '')}/rest/v1/${endpoint}`, { ...options, headers });
-};
-
-async function supabaseErrorCode(response) {
-  try {
-    const body = await response.clone().json();
-    return typeof body.code === 'string' && /^[A-Z0-9]{1,12}$/i.test(body.code) ? body.code : undefined;
-  } catch {
-    return undefined;
-  }
-}
+const DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function normalizeUtm(data) {
   const cleaned = utmFields(data);
@@ -48,6 +23,15 @@ function normalizeUtm(data) {
   }
 
   return cleaned;
+}
+
+// Delivers to n8n and records the outcome. Lead is already saved, so any
+// failure here leaves notification_status = PENDING for the retry job.
+async function notifyAndRecord(lead) {
+  const status = await deliverToAutomation(lead);
+  if (status === 'PENDING') return 'PENDING';
+  const recorded = await updateNotificationStatus(lead.lead_id, status);
+  return recorded ? status : 'PENDING';
 }
 
 export default async function handler(req, res) {
@@ -86,7 +70,6 @@ export default async function handler(req, res) {
   }
 
   const requestId = clean(req.headers['idempotency-key'] || b.request_id || '', 80) || crypto.randomUUID();
-
   const failure = { stage: 'load_tours', status: undefined, databaseCode: undefined };
 
   try {
@@ -111,8 +94,11 @@ export default async function handler(req, res) {
       budget,
     });
 
+    // Layer 1: same idempotency key (client retry of the same request).
     failure.stage = 'check_duplicate';
-    const existingResponse = await supabase(`leads?request_id=eq.${encodeURIComponent(requestId)}&select=lead_id,notification_status`);
+    const existingResponse = await supabase(
+      `leads?request_id=eq.${encodeURIComponent(requestId)}&select=lead_id,notification_status`,
+    );
     if (!existingResponse.ok) {
       failure.status = existingResponse.status;
       failure.databaseCode = await supabaseErrorCode(existingResponse);
@@ -125,6 +111,28 @@ export default async function handler(req, res) {
       return send(res, 200, {
         lead_id: first.lead_id,
         notification_status: first.notification_status || 'PENDING',
+        duplicate: true,
+      });
+    }
+
+    // Layer 2: same contact + destination within 24h (customer resubmits a new form).
+    const since = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString();
+    const recentResponse = await supabase(
+      `leads?contact=eq.${encodeURIComponent(contact)}` +
+        `&destination=eq.${encodeURIComponent(destination)}` +
+        `&created_at=gte.${encodeURIComponent(since)}` +
+        `&select=lead_id,notification_status&order=created_at.desc&limit=1`,
+    );
+    if (!recentResponse.ok) {
+      failure.status = recentResponse.status;
+      failure.databaseCode = await supabaseErrorCode(recentResponse);
+      throw new Error('Supabase recent-lead check failed');
+    }
+    const recent = await recentResponse.json();
+    if (Array.isArray(recent) && recent[0]) {
+      return send(res, 200, {
+        lead_id: recent[0].lead_id,
+        notification_status: recent[0].notification_status || 'PENDING',
         duplicate: true,
       });
     }
@@ -146,7 +154,7 @@ export default async function handler(req, res) {
       selected_tour_id: selected?.id || null,
       selected_tour_name: selected?.name || null,
       lead_source: source,
-      lead_status: selected ? 'HIGH_PRIORITY' : 'STANDARD',
+      lead_status: 'NEW',
       notification_status: 'PENDING',
       note: clean(b.note, 1000) || null,
       consent_to_contact: true,
@@ -205,109 +213,7 @@ export default async function handler(req, res) {
       throw new Error('Lead ID missing after save');
     }
 
-    let notificationStatus = 'PENDING';
-
-    if (process.env.N8N_WEBHOOK_URL) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15_000);
-      let webhook;
-
-      try {
-        webhook = await fetch(process.env.N8N_WEBHOOK_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Automation-Secret': process.env.N8N_WEBHOOK_SECRET || '',
-          },
-          signal: controller.signal,
-          body: JSON.stringify({
-            lead_id: lead.lead_id,
-            name,
-            contact,
-            email: explicitEmail || null,
-            phone: explicitPhone || null,
-            zalo_phone: explicitZalo || null,
-            destination,
-            duration,
-            budget,
-            party_size: partySize,
-            travel_date: row.travel_date,
-            interests: row.interests,
-            selected_tour_id: row.selected_tour_id,
-            selected_tour_name: row.selected_tour_name,
-            note: row.note,
-            consent_to_contact: true,
-            lead_source: row.lead_source,
-            source: row.source,
-            lead_score: row.lead_score,
-            lead_level: row.lead_level,
-            score_signals: row.score_signals,
-            customer_segment: row.customer_segment,
-            customer_traits: row.customer_traits,
-            voucher_code: row.voucher_code,
-            voucher_status: row.voucher_status,
-            voucher_channel: row.voucher_channel,
-            utm_source: row.utm_source,
-            utm_medium: row.utm_medium,
-            utm_campaign: row.utm_campaign,
-            utm_content: row.utm_content,
-            utm_term: row.utm_term,
-          }),
-        });
-      } catch (error) {
-        console.error('[api/leads] Notification webhook request failed', {
-          errorCode: error?.name || 'UNKNOWN',
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-
-      if (webhook) {
-        if (!webhook.ok) {
-          console.error('[api/leads] Notification webhook returned an error', {
-            status: webhook.status,
-          });
-        }
-        const ackPayload = webhook.ok ? await webhook.json().catch(() => ({})) : {};
-        const ack = ackPayload && typeof ackPayload === 'object' && !Array.isArray(ackPayload)
-          ? ackPayload
-          : {};
-        const notificationSent = ack.notification_sent ?? ack.email_sent;
-        if (notificationSent === true) {
-          notificationStatus = 'SENT';
-        } else if (notificationSent === false) {
-          notificationStatus = 'FAILED';
-        } else {
-          console.error('[api/leads] Notification webhook response did not confirm delivery', {
-            status: webhook.status,
-          });
-        }
-
-        if (notificationStatus !== 'PENDING') {
-          try {
-            const updateResponse = await supabase(`leads?lead_id=eq.${encodeURIComponent(lead.lead_id)}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ notification_status: notificationStatus }),
-            });
-            if (!updateResponse.ok) {
-              console.error('[api/leads] Notification status update failed', {
-                status: updateResponse.status,
-                databaseCode: await supabaseErrorCode(updateResponse),
-              });
-              notificationStatus = 'PENDING';
-            }
-          } catch (error) {
-            console.error('[api/leads] Notification status update failed', {
-              errorCode: error?.name || 'UNKNOWN',
-            });
-            notificationStatus = 'PENDING';
-          }
-        }
-      }
-    } else {
-      console.error('[api/leads] Notification webhook is not configured');
-    }
+    const notificationStatus = await notifyAndRecord({ ...row, lead_id: lead.lead_id });
 
     return send(res, 201, {
       lead_id: lead.lead_id,

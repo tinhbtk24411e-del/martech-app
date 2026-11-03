@@ -119,3 +119,34 @@ where lead_level is null;
 update public.leads
 set voucher_status = coalesce(voucher_status, 'PENDING')
 where voucher_status is null;
+
+-- ---------------------------------------------------------------
+-- v2: Sales lifecycle, notification retry, duplicate lookup
+-- ---------------------------------------------------------------
+
+alter table public.leads
+  add column if not exists sales_note text,
+  add column if not exists notification_attempts integer not null default 0,
+  add column if not exists last_notification_at timestamptz;
+
+-- Normalise legacy priority values written by earlier versions into the team's status set.
+update public.leads
+set lead_status = 'NEW'
+where lead_status not in ('NEW', 'CONTACTED', 'QUOTED', 'BOOKED', 'LOST');
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'leads_lead_status_check'
+  ) then
+    alter table public.leads
+      add constraint leads_lead_status_check
+      check (lead_status in ('NEW', 'CONTACTED', 'QUOTED', 'BOOKED', 'LOST'));
+  end if;
+end $$;
+
+create index if not exists leads_contact_destination_created_idx
+  on public.leads (contact, destination, created_at desc);
+
+create index if not exists leads_notification_retry_idx
+  on public.leads (notification_status, notification_attempts, created_at);

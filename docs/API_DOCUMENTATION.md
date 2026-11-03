@@ -85,3 +85,17 @@ Ví dụ JSON để n8n nhận:
 ```
 
 Dashboard hiện tại là demo tĩnh, không đọc dữ liệu thật từ Supabase. CSV tải từ [dashboard.html](../dashboard.html) chỉ chứa số liệu giả lập và có ghi rõ các giả định.
+
+## v2: vòng đời lead, retry và KPI
+
+`POST /api/leads` giờ tự chống trùng: nếu cùng số liên hệ và cùng điểm đến đã có lead trong 24 giờ, API trả `200` với `duplicate: true` và lead_id cũ, không tạo bản ghi mới và không gửi lại thông báo cho Sales. Lead mới luôn bắt đầu ở `lead_status = NEW`; mức ưu tiên nằm ở `lead_level` (HOT/WARM/COLD).
+
+`POST /api/lead-status` dành cho Sales. Yêu cầu header `X-Sales-Secret` khớp với `SALES_UPDATE_SECRET`. Body: `{ "lead_id": "...", "lead_status": "CONTACTED", "sales_note": "tùy chọn" }`. Trạng thái hợp lệ: NEW, CONTACTED, QUOTED, BOOKED, LOST. Luồng cho phép: NEW→CONTACTED/LOST; CONTACTED→QUOTED/LOST; QUOTED→BOOKED/LOST/CONTACTED; LOST→CONTACTED; BOOKED là trạng thái cuối. Chuyển sai luật trả `409`. Cập nhật có điều kiện trên trạng thái đã đọc, nên hai người sửa cùng lúc sẽ không ghi đè nhau.
+
+`GET /api/retry-notifications` được Vercel Cron gọi (cấu hình trong `vercel.json`, xác thực bằng `Authorization: Bearer CRON_SECRET`). Job lấy tối đa 20 lead có `notification_status` là PENDING hoặc FAILED, cũ hơn 2 phút và chưa vượt 5 lần thử. Mỗi lead được "nhận" bằng một lần cập nhật có điều kiện trên `notification_attempts` để các lần chạy chồng nhau không gửi trùng. Lưu ý: nếu n8n đã gửi thành công nhưng bước ghi trạng thái về Supabase thất bại, lead vẫn ở PENDING và có thể bị gửi lại. n8n nên dùng `lead_id` để bỏ qua thông báo trùng.
+
+`GET /api/kpi` trả số liệu tổng hợp ẩn danh của 180 ngày gần nhất: tổng lead, theo trạng thái, theo mức ưu tiên, theo nguồn UTM, theo tháng. Không trả thông tin liên hệ. Dashboard dùng endpoint này để hiện khối "Dữ liệu thật" khi có kết nối Supabase.
+
+Biến môi trường mới: `SALES_UPDATE_SECRET` (cập nhật trạng thái), `CRON_SECRET` (job retry). Chạy lại `docs/supabase-schema.sql` để thêm `sales_note`, `notification_attempts`, `last_notification_at` và ràng buộc trạng thái.
+
+Lưu ý về lịch Cron: gói Hobby của Vercel chỉ cho chạy cron tối đa một lần mỗi ngày, nên `vercel.json` đặt `0 3 * * *`. Nếu nâng lên gói Pro, có thể đổi thành `*/15 * * * *`.
