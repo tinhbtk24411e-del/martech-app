@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="description" content="Dashboard KPI VietJourney — mô phỏng theo kịch bản, đồng bộ với file Excel.">
-    <title>VietJourney | Dashboard KPI</title>
+    <meta name="description" content="Dashboard theo dõi lead thực tế từ hệ thống VietJourney.">
+    <title>VietJourney | Dashboard dữ liệu lead</title>
     <link rel="stylesheet" href="dashboard.css">
   </head>
   <body>
@@ -15,55 +15,53 @@
     <main>
       <section class="intro">
         <p class="eyebrow">MARTECH REVENUE ENGINE</p>
-        <h1>Sales funnel & KPI</h1>
-        <p>Phễu từ lượt truy cập đến khách đặt tour, tính từ một bộ giả định duy nhất. Số liệu mô phỏng, không phải kết quả kinh doanh thực.</p>
+        <h1>Hiệu quả lead & Sales</h1>
+        <p>Số liệu tổng hợp từ lead đã lưu trên hệ thống trong 180 ngày gần nhất. Không bao gồm lượt truy cập, doanh thu hoặc chi phí quảng cáo.</p>
         <div class="toolbar">
-          <label for="scenarioFilter">Kịch bản</label>
-          <select id="scenarioFilter"></select>
-          <button id="exportCsv" type="button">Tải CSV cho Excel ↓</button>
+          <button id="refreshKpi" type="button">Làm mới dữ liệu</button>
+          <button id="exportCsv" type="button" class="button-secondary" disabled>Tải CSV ↓</button>
+          <span id="lastUpdated" class="update-time" aria-live="polite"></span>
         </div>
       </section>
 
-      <section id="liveBlock" class="assumptions" hidden aria-labelledby="liveTitle">
-        <h2 id="liveTitle">Dữ liệu thật từ hệ thống (ẩn danh, 180 ngày)</h2>
-        <ul>
-          <li>Tổng lead: <strong id="liveTotal">0</strong></li>
-          <li>Trạng thái: <span id="liveStatus">—</span></li>
-          <li>Lead có chọn tour cụ thể: <strong id="liveTour">0</strong></li>
-        </ul>
-      </section>
+      <p id="dashboardMessage" class="dashboard-message" role="status" aria-live="polite">Đang tải dữ liệu lead…</p>
 
-      <section class="assumptions" aria-labelledby="assumptionTitle">
-        <h2 id="assumptionTitle">Giả định của kịch bản</h2>
-        <ul id="assumptionsList"></ul>
-      </section>
+      <div id="dashboardContent" hidden>
+        <section class="kpi-grid" id="kpiGrid" aria-label="Chỉ số lead"></section>
 
-      <section class="kpi-grid" id="kpiGrid" aria-live="polite"></section>
+        <div class="panel-grid">
+          <section class="panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">TRẠNG THÁI SALES</p><h2>Pipeline lead</h2></div>
+              <span>Lead trong 180 ngày</span>
+            </div>
+            <div id="statusBreakdown" class="breakdown" aria-live="polite"></div>
+          </section>
 
-      <section class="panel funnel-panel">
-        <div class="panel-heading">
-          <div><p class="eyebrow">HÀNH TRÌNH KHÁCH HÀNG</p><h2>Sales Funnel</h2></div>
-          <span id="funnelPeriod"></span>
+          <section class="panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">NGUỒN TIẾP CẬN</p><h2>Lead theo nguồn</h2></div>
+              <span>UTM source</span>
+            </div>
+            <div id="sourceBreakdown" class="breakdown" aria-live="polite"></div>
+          </section>
         </div>
-        <div id="funnel" class="funnel" aria-live="polite"></div>
-      </section>
 
-      <section class="panel table-panel">
-        <div class="panel-heading">
-          <div><p class="eyebrow">DỰ PHÓNG 6 THÁNG</p><h2>Hiệu quả marketing</h2></div>
-          <span>Mô phỏng · VND</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Tháng</th><th>Visitors</th><th>Leads</th><th>MQL</th><th>SQL</th><th>Customers</th><th>Customer/Lead</th><th>Doanh thu</th><th>CAC</th><th>LTV</th></tr>
-            </thead>
-            <tbody id="monthlyRows"></tbody>
-          </table>
-        </div>
-      </section>
+        <section class="panel table-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">XU HƯỚNG THỰC TẾ</p><h2>Lead theo tháng</h2></div>
+            <span>180 ngày gần nhất</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Tháng</th><th>Số lead</th></tr></thead>
+              <tbody id="monthlyRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </main>
-    <footer>Dữ liệu demo minh họa dashboard, không phản ánh kết quả kinh doanh thực tế.</footer>
+    <footer>Dữ liệu tổng hợp, không hiển thị thông tin liên hệ cá nhân.</footer>
     <script type="module" src="dashboard.js"></script>
   </body>
 </html>

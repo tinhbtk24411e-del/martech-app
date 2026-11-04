@@ -1,28 +1,23 @@
-import { computeScenario, projectTrend, SCENARIO_ORDER } from './kpi-model.js';
-
 const $ = (selector) => document.querySelector(selector);
-const numberFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 });
-const integerFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
-const pct = (value) => `${(value * 100).toFixed(1)}%`;
-const vnd = (value) => `${integerFormat.format(Math.round(value))} ₫`;
+const numberFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
+const percentFormat = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 });
+const LEAD_STATUSES = ['NEW', 'CONTACTED', 'QUOTED', 'BOOKED', 'LOST'];
+let liveData = null;
 
-let assumptions = null;
-let trendRows = [];
-
-function selectedInputs() {
-  return assumptions.scenarios[$('#scenarioFilter').value];
+function count(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
-function renderKpis(s, inputs) {
+function renderCards(data) {
+  const total = count(data.total);
+  const booked = count(data.by_status?.BOOKED);
   const cards = [
-    ['Lượt truy cập / tháng', integerFormat.format(s.visitors), 'Giả lập, kịch bản đang chọn'],
-    ['Leads', numberFormat.format(s.leads), `Lead rate ${pct(s.leadRate)}`],
-    ['MQL → SQL', `${numberFormat.format(s.mql)} → ${numberFormat.format(s.sql)}`, `SQL/MQL ${pct(s.sqlRate)}`],
-    ['Khách đặt tour', numberFormat.format(s.customers), `Customer / Lead ${pct(s.customerPerLead)}`],
-    ['Doanh thu mô phỏng', vnd(s.revenue), 'Khách × giá trung bình tour'],
-    ['CAC ước tính', vnd(s.cac), `Chi phí ${vnd(s.spend)} / khách`],
-    ['LTV ước tính', vnd(s.ltv), `Giả định ${inputs.purchases_per_customer} lượt mua / khách`],
-    ['LTV : CAC', `${numberFormat.format(s.ltvToCac)} : 1`, 'Chưa trừ giá vốn tour'],
+    ['Tổng lead', numberFormat.format(total), 'Trong 180 ngày gần nhất'],
+    ['Đã đặt tour', numberFormat.format(booked), 'Trạng thái BOOKED'],
+    ['Tỷ lệ đặt tour', percentFormat.format(total ? booked / total : 0), 'Đặt tour / tổng lead'],
+    ['Có chọn tour', numberFormat.format(count(data.with_selected_tour)), 'Lead đã chọn tour cụ thể'],
+    ['Lead HOT', numberFormat.format(count(data.by_level?.HOT)), 'Theo điểm ưu tiên hiện tại'],
   ];
   $('#kpiGrid').replaceChildren(...cards.map(([label, value, note]) => {
     const card = document.createElement('article');
@@ -38,97 +33,101 @@ function renderKpis(s, inputs) {
   }));
 }
 
-function renderFunnel(s, label) {
-  const stages = [
-    ['Visitors', s.visitors],
-    ['Leads', s.leads],
-    ['MQL', s.mql],
-    ['SQL', s.sql],
-    ['Customers', s.customers],
-  ];
-  const max = s.visitors || 1;
-  $('#funnelPeriod').textContent = label;
-  $('#funnel').replaceChildren(...stages.map(([name, value], index) => {
+function renderBreakdown(target, values, order) {
+  const entries = order
+    .filter((key) => Object.hasOwn(values, key))
+    .map((key) => [key, count(values[key])]);
+  Object.entries(values)
+    .filter(([key]) => !order.includes(key))
+    .forEach(([key, value]) => entries.push([key, count(value)]));
+  entries.sort((a, b) => b[1] - a[1]);
+  const max = Math.max(1, ...entries.map(([, value]) => value));
+  const total = entries.reduce((sum, [, value]) => sum + value, 0);
+
+  $(target).replaceChildren(...(entries.length ? entries : [['Chưa có dữ liệu', 0]]).map(([label, value]) => {
     const row = document.createElement('div');
-    row.className = 'funnel-row';
-    const title = document.createElement('span');
-    title.className = 'funnel-label';
-    title.textContent = name;
+    row.className = 'breakdown-row';
+    const heading = document.createElement('div');
+    heading.className = 'breakdown-heading';
+    const name = document.createElement('span');
+    name.textContent = label;
+    const amount = document.createElement('strong');
+    amount.textContent = numberFormat.format(value);
+    heading.append(name, amount);
     const track = document.createElement('div');
     track.className = 'bar-track';
     track.setAttribute('role', 'img');
-    track.setAttribute('aria-label', `${name}: ${numberFormat.format(value)}`);
+    track.setAttribute('aria-label', `${label}: ${numberFormat.format(value)}`);
     const bar = document.createElement('div');
     bar.className = 'bar';
-    bar.style.width = `${Math.max(1, value / max * 100)}%`;
+    bar.style.width = `${value ? Math.max(2, value / max * 100) : 0}%`;
     track.append(bar);
-    const count = document.createElement('span');
-    count.className = 'funnel-count';
-    count.textContent = numberFormat.format(value);
-    const rate = document.createElement('span');
-    rate.className = 'funnel-rate';
-    rate.textContent = index === 0 ? '100%' : pct(value / stages[index - 1][1] || 0);
-    row.append(title, track, count, rate);
+    const share = document.createElement('small');
+    share.textContent = `${percentFormat.format(total ? value / total : 0)} tổng lead`;
+    row.append(heading, track, share);
     return row;
   }));
 }
 
-function renderTrend(rows) {
-  $('#monthlyRows').replaceChildren(...rows.map((row) => {
-    const values = [
-      `Tháng ${row.month}`,
-      integerFormat.format(Math.round(row.visitors)),
-      numberFormat.format(row.leads),
-      numberFormat.format(row.mql),
-      numberFormat.format(row.sql),
-      numberFormat.format(row.customers),
-      pct(row.customerPerLead),
-      vnd(row.revenue),
-      vnd(row.cac),
-      vnd(row.ltv),
-    ];
-    const tr = document.createElement('tr');
-    values.forEach((value) => {
-      const cell = document.createElement('td');
-      cell.textContent = value;
-      tr.append(cell);
-    });
-    return tr;
+function formatMonth(month) {
+  if (!/^\d{4}-\d{2}$/.test(month)) return month;
+  const [year, value] = month.split('-').map(Number);
+  return new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+    .format(new Date(Date.UTC(year, value - 1, 1)));
+}
+
+function renderMonths(byMonth) {
+  const entries = Object.entries(byMonth)
+    .sort(([a], [b]) => b.localeCompare(a));
+  $('#monthlyRows').replaceChildren(...(entries.length ? entries : [['', 0]]).map(([month, value]) => {
+    const row = document.createElement('tr');
+    const monthCell = document.createElement('td');
+    monthCell.textContent = month ? formatMonth(month) : 'Chưa có dữ liệu';
+    const countCell = document.createElement('td');
+    countCell.textContent = numberFormat.format(count(value));
+    row.append(monthCell, countCell);
+    return row;
   }));
 }
 
-function render() {
-  const inputs = selectedInputs();
-  const s = computeScenario(inputs);
-  trendRows = projectTrend(inputs, 6);
-  renderKpis(s, inputs);
-  renderFunnel(s, inputs.label);
-  renderTrend(trendRows);
-  $('#assumptionsList').replaceChildren(...[
-    `Lượt truy cập: ${integerFormat.format(inputs.visitors_per_month)} / tháng, tăng ${pct(inputs.monthly_growth)} mỗi tháng trong phần dự phóng.`,
-    `Lead rate ${pct(inputs.lead_rate)} · MQL ${pct(inputs.mql_rate)} của lead · SQL ${pct(inputs.sql_rate)} của MQL · Khách đặt tour ${pct(inputs.customer_rate)} của SQL.`,
-    `Giá trung bình tour ${vnd(inputs.avg_booking_value)} (trung bình 10 tour trong catalog); ${inputs.purchases_per_customer} lượt mua / khách.`,
-    `Chi phí marketing cố định ${vnd(inputs.marketing_spend_per_month)} / tháng.`,
-    'Toàn bộ số liệu là mô phỏng. Nguồn duy nhất: data/kpi-assumptions.json, cùng công thức với file Excel.',
-  ].map((text) => {
-    const li = document.createElement('li');
-    li.textContent = text;
-    return li;
-  }));
+function render(data) {
+  renderCards(data);
+  renderBreakdown('#statusBreakdown', data.by_status || {}, LEAD_STATUSES);
+  renderBreakdown('#sourceBreakdown', data.by_source || {}, []);
+  renderMonths(data.by_month || {});
+  $('#lastUpdated').textContent = data.generated_at
+    ? `Cập nhật ${new Date(data.generated_at).toLocaleString('vi-VN')}`
+    : '';
+  $('#dashboardContent').hidden = false;
+  $('#exportCsv').disabled = false;
 }
 
-async function loadLiveSummary() {
+async function loadKpi() {
+  const button = $('#refreshKpi');
+  const message = $('#dashboardMessage');
+  button.disabled = true;
+  message.className = 'dashboard-message';
+  message.textContent = liveData ? 'Đang cập nhật dữ liệu…' : 'Đang tải dữ liệu lead…';
+
   try {
     const response = await fetch('/api/kpi', { cache: 'no-store' });
-    if (!response.ok) return;
     const data = await response.json();
-    const rows = Object.entries(data.by_status || {}).map(([status, count]) => `${status}: ${count}`);
-    $('#liveTotal').textContent = numberFormat.format(data.total);
-    $('#liveStatus').textContent = rows.length ? rows.join(' · ') : 'Chưa có lead';
-    $('#liveTour').textContent = numberFormat.format(data.with_selected_tour || 0);
-    $('#liveBlock').hidden = false;
-  } catch {
-    // Live block stays hidden when the API is not configured.
+    if (!response.ok) throw new Error(data.error || 'Không tải được dữ liệu KPI.');
+    if (!data || !Number.isFinite(Number(data.total)) || !data.by_status ||
+        !data.by_level || !data.by_source || !data.by_month) {
+      throw new Error('Dữ liệu KPI trả về không đúng định dạng.');
+    }
+
+    liveData = data;
+    render(data);
+    message.textContent = `Đang hiển thị ${numberFormat.format(count(data.total))} lead trong ${count(data.window_days) || 180} ngày gần nhất.`;
+  } catch (error) {
+    message.className = 'dashboard-message error';
+    message.textContent = error instanceof TypeError
+      ? 'Không kết nối được với hệ thống dữ liệu. Kiểm tra cấu hình Supabase rồi thử lại.'
+      : error.message || 'Không tải được dữ liệu KPI. Vui lòng thử lại.';
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -137,45 +136,32 @@ function csvCell(value) {
 }
 
 function exportCsv() {
-  const scenario = $('#scenarioFilter').value;
-  const header = ['Tháng', 'Visitors', 'Leads', 'MQL', 'SQL', 'Customers', 'Customer/Lead', 'Revenue (VND)', 'CAC (VND)', 'LTV (VND)'];
-  const rows = trendRows.map((row) => [
-    row.month, Math.round(row.visitors), row.leads.toFixed(1), row.mql.toFixed(1), row.sql.toFixed(1),
-    row.customers.toFixed(2), pct(row.customerPerLead), Math.round(row.revenue), Math.round(row.cac), Math.round(row.ltv),
-  ]);
+  if (!liveData) return;
+  const rows = [
+    ['Nhóm', 'Giá trị', 'Số lead'],
+    ...Object.entries(liveData.by_status || {}).map(([key, value]) => ['Trạng thái', key, count(value)]),
+    ...Object.entries(liveData.by_level || {}).map(([key, value]) => ['Mức ưu tiên', key, count(value)]),
+    ...Object.entries(liveData.by_source || {}).map(([key, value]) => ['Nguồn UTM', key, count(value)]),
+    ...Object.entries(liveData.by_month || {}).map(([key, value]) => ['Tháng', key, count(value)]),
+  ];
   const content = [
-    ['Dataset', assumptions.dataset],
-    ['Kịch bản', assumptions.scenarios[scenario].label],
-    ['Nguồn số liệu', 'data/kpi-assumptions.json (cùng công thức với file Excel mô phỏng)'],
+    ['Dữ liệu lead tổng hợp', `180 ngày gần nhất`],
+    ['Tổng lead', count(liveData.total)],
+    ['Lead có chọn tour', count(liveData.with_selected_tour)],
     [],
-    header,
     ...rows,
   ].map((row) => row.map(csvCell).join(',')).join('\r\n');
   const blob = new Blob([`\uFEFF${content}`], { type: 'text/csv;charset=utf-8' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
   link.href = url;
-  link.download = `vietjourney-kpi-${scenario}.csv`;
+  link.download = 'vietjourney-lead-kpi.csv';
   document.body.append(link);
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function init() {
-  const response = await fetch('data/kpi-assumptions.json', { cache: 'no-store' });
-  assumptions = await response.json();
-  const select = $('#scenarioFilter');
-  select.replaceChildren(...SCENARIO_ORDER.map((key) => {
-    const option = document.createElement('option');
-    option.value = key;
-    option.textContent = assumptions.scenarios[key].label;
-    return option;
-  }));
-  select.addEventListener('change', render);
-  $('#exportCsv').addEventListener('click', exportCsv);
-  render();
-  loadLiveSummary();
-}
-
-init();
+$('#refreshKpi').addEventListener('click', loadKpi);
+$('#exportCsv').addEventListener('click', exportCsv);
+loadKpi();

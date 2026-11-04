@@ -2,6 +2,7 @@ import { send } from './_shared.js';
 import { supabase } from './_supabase.js';
 
 const WINDOW_DAYS = 180;
+const PAGE_SIZE = 1000;
 
 // Aggregate-only endpoint for the dashboard. Returns counts, never contact details.
 export default async function handler(req, res) {
@@ -13,13 +14,29 @@ export default async function handler(req, res) {
   const since = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   try {
-    const response = await supabase(
-      `leads?created_at=gte.${encodeURIComponent(since)}` +
-        `&select=created_at,lead_status,lead_level,utm_source,selected_tour_id&limit=5000`,
-    );
-    if (!response.ok) return send(res, 503, { error: 'Chưa đọc được dữ liệu KPI.' });
+    const rows = [];
+    for (let offset = 0; ; offset += PAGE_SIZE) {
+      const response = await supabase(
+        `leads?created_at=gte.${encodeURIComponent(since)}` +
+          `&select=lead_id,created_at,lead_status,lead_level,utm_source,selected_tour_id&order=created_at.asc,lead_id.asc`,
+        {
+          headers: {
+            Range: `${offset}-${offset + PAGE_SIZE - 1}`,
+            'Range-Unit': 'items',
+          },
+        },
+      );
+      if (!response.ok) return send(res, 503, { error: 'Chưa đọc được dữ liệu KPI.' });
 
-    const rows = await response.json();
+      const page = await response.json();
+      if (!Array.isArray(page)) {
+        console.error('[api/kpi] Supabase returned an invalid lead page');
+        return send(res, 503, { error: 'Dữ liệu KPI không đúng định dạng.' });
+      }
+      rows.push(...page);
+      if (page.length < PAGE_SIZE) break;
+    }
+
     const countBy = (key) => rows.reduce((acc, row) => {
       const value = row[key] || 'unknown';
       acc[value] = (acc[value] || 0) + 1;

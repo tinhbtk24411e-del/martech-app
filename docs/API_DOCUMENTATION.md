@@ -84,7 +84,7 @@ Ví dụ JSON để n8n nhận:
 }
 ```
 
-Dashboard hiện tại là demo tĩnh, không đọc dữ liệu thật từ Supabase. CSV tải từ [dashboard.html](../dashboard.html) chỉ chứa số liệu giả lập và có ghi rõ các giả định.
+Dashboard tại [dashboard.html](../dashboard.html) gọi `GET /api/kpi` để hiển thị dữ liệu lead tổng hợp từ Supabase trong 180 ngày gần nhất: trạng thái Sales, mức ưu tiên, UTM source, lead theo tháng và số lead đã chọn tour. API chỉ trả số liệu tổng hợp, phân trang khi đọc Supabase và không trả thông tin liên hệ. Dashboard không hiển thị traffic, doanh thu hoặc chi phí quảng cáo vì các dữ liệu đó hiện chưa được thu thập; CSV tải xuống chỉ chứa các số liệu lead thực tế này.
 
 ## v2: vòng đời lead, retry và KPI
 

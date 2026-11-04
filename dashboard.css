@@ -144,6 +144,23 @@ main {
   transition: transform 0.2s ease;
 }
 .toolbar button:hover { transform: translateY(-2px); }
+.toolbar button:disabled { opacity: 0.6; cursor: wait; transform: none; }
+.toolbar .button-secondary {
+  color: var(--ocean);
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+.toolbar .button-secondary:hover { background: var(--mint); }
+.update-time { color: var(--muted); font-size: 0.84rem; }
+.dashboard-message {
+  margin: 0 0 24px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  color: var(--ocean-deep);
+  background: var(--mint);
+}
+.dashboard-message.error { color: #8d2d1f; background: #fff0ec; }
 
 .assumptions {
   margin: 0 0 24px;
@@ -167,7 +184,7 @@ main {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -214,6 +231,11 @@ main {
 }
 .kpi-card small { color: var(--muted); font-size: 0.8rem; }
 
+.panel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
 .panel {
   margin-bottom: 24px;
   padding: 28px 30px;
@@ -261,6 +283,12 @@ main {
   background: linear-gradient(90deg, var(--ocean), var(--ocean-2));
   transition: width 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+.breakdown { display: grid; gap: 16px; }
+.breakdown-row { display: grid; gap: 6px; }
+.breakdown-heading { display: flex; justify-content: space-between; gap: 12px; }
+.breakdown-heading span { font-weight: 700; overflow-wrap: anywhere; }
+.breakdown-heading strong { font-variant-numeric: tabular-nums; }
+.breakdown-row small { color: var(--muted); font-size: 0.78rem; }
 .funnel-row:last-child .bar { background: linear-gradient(90deg, var(--coral), var(--coral-2)); }
 .funnel-count {
   font-weight: 800;
@@ -319,6 +347,7 @@ footer {
   .funnel-row { grid-template-columns: 96px minmax(0, 1fr) 64px; }
   .funnel-rate { display: none; }
   .panel { padding: 22px 20px; }
+  .panel-grid { grid-template-columns: 1fr; }
   .dashboard-header > a:last-child { font-size: 0.82rem; padding: 7px 11px; }
 }
 @media (prefers-reduced-motion: reduce) {
