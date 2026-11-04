@@ -3,6 +3,7 @@ import { tours } from './_shared.js';
 import { normalizePlannerPlan, parsePlannerContent } from './_planner.js';
 
 export const config = {
+  maxDuration: 300,
   api: {
     bodyParser: {
       sizeLimit: '16kb',
@@ -105,8 +106,6 @@ async function plannerResponse({ message, history, trip, apiKey, res }) {
     ...chatHistory(history),
     { role: 'user', content: message },
   ];
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
 
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -117,7 +116,6 @@ async function plannerResponse({ message, history, trip, apiKey, res }) {
         'HTTP-Referer': 'https://martech-app.vercel.app',
         'X-OpenRouter-Title': 'VietJourney',
       },
-      signal: controller.signal,
       body: JSON.stringify({
         model: 'openrouter/free',
         messages,
@@ -148,12 +146,10 @@ async function plannerResponse({ message, history, trip, apiKey, res }) {
     return send(res, 200, { success: true, plan });
   } catch (error) {
     console.error('[aichat] Planner request failed:', { errorCode: error?.name || 'UNKNOWN' });
-    return send(res, error?.name === 'AbortError' ? 504 : 502, {
+    return send(res, 502, {
       success: false,
-      error: error?.name === 'AbortError' ? 'AI phản hồi quá lâu. Vui lòng thử lại.' : 'Không thể kết nối với AI.',
+      error: 'Không thể kết nối với AI.',
     });
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -316,9 +312,6 @@ ${JSON.stringify(catalog)}
     },
   ];
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
-
   try {
     const response = await fetch(
       'https://openrouter.ai/api/v1/chat/completions',
@@ -330,7 +323,6 @@ ${JSON.stringify(catalog)}
           'HTTP-Referer': 'https://martech-app.vercel.app',
           'X-OpenRouter-Title': 'VietJourney',
         },
-        signal: controller.signal,
         body: JSON.stringify({
           model: 'openrouter/free',
           messages: contents,
@@ -384,19 +376,9 @@ ${JSON.stringify(catalog)}
       errorCode: error?.name || 'UNKNOWN',
     });
 
-    if (error?.name === 'AbortError') {
-      return send(res, 504, {
-        success: false,
-        error: 'AI phản hồi quá lâu. Vui lòng thử lại.',
-      });
-    }
-
     return send(res, 502, {
       success: false,
       error: 'Không thể kết nối với AI.',
     });
-
-  } finally {
-    clearTimeout(timeout);
   }
 }
