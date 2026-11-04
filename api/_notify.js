@@ -47,9 +47,14 @@ export function automationPayload(row) {
 // Returns 'SENT' | 'FAILED' | 'PENDING'. Only n8n's explicit acknowledgment
 // produces SENT or FAILED; anything else stays PENDING for the retry job.
 export async function deliverToAutomation(lead) {
-  const url = process.env.N8N_WEBHOOK_URL;
+  const bookingRequest = lead.lead_source === 'booking_form';
+  const url = bookingRequest
+    ? process.env.N8N_BOOKING_WEBHOOK_URL
+    : process.env.N8N_WEBHOOK_URL;
   if (!url) {
-    console.error('[notify] Notification webhook is not configured');
+    console.error('[notify] Automation webhook is not configured', {
+      workflow: bookingRequest ? 'booking' : 'lead',
+    });
     return 'PENDING';
   }
 
@@ -81,7 +86,7 @@ export async function deliverToAutomation(lead) {
 
   const ack = await webhook.json().catch(() => ({}));
   const body = ack && typeof ack === 'object' && !Array.isArray(ack) ? ack : {};
-  if (lead.lead_source === 'booking_form') {
+  if (bookingRequest) {
     if (body.customer_email_sent === true && body.sales_email_sent === true) return 'SENT';
     if (body.customer_email_sent === false || body.sales_email_sent === false) return 'FAILED';
     console.error('[notify] Booking emails were not both confirmed', { status: webhook.status });

@@ -59,10 +59,10 @@ Không gửi PII vào `/api/aichat`. API không bịa giá hoặc tình trạng 
 
 ## n8n workflow gợi ý
 
-1. Webhook `POST /webhook/travel-lead` nhận lead đã lưu từ `/api/leads`; kiểm tra `X-Automation-Secret` và chuẩn hóa `$json.body ?? $json` trước khi đọc payload.
-2. Dùng `lead_score`, `lead_level`, `customer_segment` đã tính ở server (không tính lại hoặc tin vào điểm từ browser); append dữ liệu cần thiết vào sheet `Leads`.
-3. Chia luồng `HOT`/`WARM`/`COLD` theo `lead_level`. Với `booking_request: true`, gửi email riêng cho khách và Sales; `booking_price_per_person` lấy từ giá tour trong catalog.
-4. Với lead thường, trả `{ "notification_sent": true, "lead_id": "..." }` chỉ sau khi Sales được thông báo (`email_sent` vẫn tương thích workflow cũ). Với booking, trả `customer_email_sent` và `sales_email_sent` riêng; backend chỉ xác nhận thành công khi cả hai đều `true`. Lấy `lead_id` từ payload chuẩn hóa, không dựa vào output node cuối.
+1. Workflow tư vấn dùng Webhook `POST /webhook/travel-lead`; workflow booking dùng Webhook riêng `POST /webhook/vietjourney-booking`. Backend chọn workflow theo loại form sau khi lưu lead.
+2. Cả hai workflow kiểm tra `X-Automation-Secret` và chuẩn hóa `$json.body ?? $json` trước khi đọc payload.
+3. Workflow tư vấn dùng `lead_score`, `lead_level`, `customer_segment` đã tính ở server (không tính lại hoặc tin vào điểm từ browser); workflow booking gửi email riêng cho khách và Sales với `booking_price_per_person` từ catalog.
+4. Workflow tư vấn trả `{ "notification_sent": true, "lead_id": "..." }` chỉ sau khi Sales được thông báo (`email_sent` vẫn tương thích workflow cũ). Workflow booking trả `customer_email_sent` và `sales_email_sent` riêng; backend chỉ xác nhận thành công khi cả hai đều `true`. Lấy `lead_id` từ payload chuẩn hóa, không dựa vào output node cuối.
 
 Ví dụ JSON để n8n nhận:
 
@@ -98,6 +98,6 @@ Dashboard tại [dashboard.html](../dashboard.html) gọi `GET /api/kpi` để h
 
 `GET /api/kpi` trả số liệu tổng hợp ẩn danh của 180 ngày gần nhất: tổng lead, theo trạng thái, theo mức ưu tiên, theo nguồn UTM, theo tháng. Không trả thông tin liên hệ. Dashboard dùng endpoint này để hiện khối "Dữ liệu thật" khi có kết nối Supabase.
 
-Biến môi trường mới: `SALES_UPDATE_SECRET` (cập nhật trạng thái), `CRON_SECRET` (job retry). Chạy lại `docs/supabase-schema.sql` để thêm `sales_note`, `notification_attempts`, `last_notification_at` và ràng buộc trạng thái.
+Biến môi trường mới: `N8N_BOOKING_WEBHOOK_URL` (URL production của workflow đặt tour), `SALES_UPDATE_SECRET` (cập nhật trạng thái), `CRON_SECRET` (job retry). Cấu hình riêng hai URL n8n và dùng chung secret server-side. Chạy lại `docs/supabase-schema.sql` để thêm `sales_note`, `notification_attempts`, `last_notification_at` và ràng buộc trạng thái.
 
 Lưu ý về lịch Cron: gói Hobby của Vercel chỉ cho chạy cron tối đa một lần mỗi ngày, nên `vercel.json` đặt `0 3 * * *`. Nếu nâng lên gói Pro, có thể đổi thành `*/15 * * * *`.
