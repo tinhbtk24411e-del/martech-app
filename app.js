@@ -8,6 +8,7 @@ let chatRequestPending = false;
 let behaviorTrackingConsent = false;
 let returnVisit = false;
 let tourViewCount = 0;
+let bookingMode = false;
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const SAVED_TOURS_KEY = 'vietjourney_saved_tours';
@@ -140,8 +141,8 @@ function card(item) {
   detail.onclick = () => showDetails(item);
 
   const choose = document.createElement('button');
-  choose.textContent = 'Tư vấn tour này';
-  choose.onclick = () => selectTour(item);
+  choose.textContent = 'Đặt tour';
+  choose.onclick = () => selectTour(item, true);
 
   actions.append(detail, choose);
   copy.append(actions);
@@ -297,7 +298,48 @@ function toggleSavedTour(tour) {
   renderTours();
 }
 
-function selectTour(tour) {
+function setBookingMode(enabled) {
+  bookingMode = enabled;
+  const form = $('#leadForm');
+  $('#contactTitle').innerHTML = enabled
+    ? 'Gửi thông tin<br>đặt tour của bạn.'
+    : 'Kể tụi mình nghe<br>bạn đang mong chuyến đi thế nào.';
+  $('#contactDescription').textContent = enabled
+    ? 'Tụi mình sẽ gửi email xác nhận đã nhận yêu cầu và liên hệ để xác nhận lịch, chỗ trước khi booking có hiệu lực.'
+    : 'Để lại vài thông tin cơ bản thôi. Đội ngũ VietJourney sẽ cùng bạn tìm phương án phù hợp.';
+  $('#contactReassurance').innerHTML = enabled
+    ? '<strong>Giá và chỗ còn cần xác nhận.</strong><br>Email xác nhận chỉ xác nhận đã nhận yêu cầu đặt tour.'
+    : '<strong>Không cần chốt tour ngay.</strong><br>Cứ hỏi trước, bạn quyết định sau nhé.';
+  $('#contactHint').textContent = enabled
+    ? 'Email bắt buộc để gửi xác nhận; số điện thoại giúp Sales liên hệ.'
+    : 'Bạn chỉ cần cung cấp email hoặc số điện thoại.';
+  $('#contactConsentText').textContent = enabled
+    ? 'Tôi đồng ý để VietJourney xử lý yêu cầu đặt tour và liên hệ xác nhận.'
+    : 'Tôi đồng ý để VietJourney liên hệ tư vấn về yêu cầu này.';
+  $('#leadSubmit').textContent = enabled ? 'Gửi yêu cầu đặt tour' : 'Gửi yêu cầu tư vấn';
+  $('#switchToInquiry').hidden = !enabled;
+  $('#emailField').querySelector('input').required = enabled;
+  const travelDateInput = $('#travelDateField').querySelector('input');
+  travelDateInput.required = enabled;
+  if (enabled) {
+    const today = new Date();
+    today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+    travelDateInput.min = today.toISOString().slice(0, 10);
+  } else {
+    travelDateInput.removeAttribute('min');
+  }
+  $('#destinationField').hidden = enabled;
+  $('#durationField').hidden = enabled;
+  $('#budgetField').hidden = enabled;
+  $('#interestsField').hidden = enabled;
+  $('#trackingConsent').hidden = enabled;
+  if (!enabled) {
+    form.elements.email.setCustomValidity('');
+    form.elements.phone.setCustomValidity('');
+  }
+}
+
+function selectTour(tour, booking = false) {
   const form = $('#leadForm');
   form.elements.selected_tour_id.value = tour.id;
   form.elements.selected_tour_name.value = tour.name;
@@ -305,8 +347,15 @@ function selectTour(tour) {
   form.elements.destination.value = tour.destination || '';
   const length = duration(tour);
   if (length) form.elements.duration.value = length;
+  if (booking) {
+    form.elements.budget.value = String(Number(tour.price_per_person) || 0);
+    setBookingMode(true);
+    setMessage(form, `Đang đặt: ${tour.name}. Giá hiển thị là giá tham khảo; ngày đi và chỗ còn sẽ được Sales xác nhận.`, 'warning');
+  } else {
+    setBookingMode(false);
+    setMessage(form, `Đã chọn “${tour.name}”. Hãy nhập ngân sách dự kiến của bạn để được tư vấn.`, true);
+  }
   location.hash = 'contact';
-  setMessage(form, `Đã chọn “${tour.name}”. Hãy nhập ngân sách dự kiến của bạn để được tư vấn.`, true);
 }
 
 function showDetails(tour) {
@@ -362,9 +411,10 @@ function showDetails(tour) {
     }));
   }
 
+  $('#dialogChoose').textContent = 'Đặt tour này';
   $('#dialogChoose').onclick = () => {
     dialog.close();
-    selectTour(tour);
+    selectTour(tour, true);
   };
   dialog.showModal();
 }
@@ -495,6 +545,7 @@ function addChatLeadAction(question, answer) {
 
 function prefillLeadFromChat(question, answer) {
   const form = $('#leadForm');
+  setBookingMode(false);
   const recentMessages = chatConversation
     .filter((item) => item.role === 'user')
     .slice(-5)
@@ -661,6 +712,7 @@ $('#leadForm').addEventListener('submit', async (event) => {
   validateLeadContact();
   if (!form.reportValidity()) return;
   const payload = fieldData(form);
+  payload.booking_request = bookingMode;
   payload.consent_to_contact = form.elements.consent_to_contact.checked;
   payload.interests = values('#leadInterests');
 
@@ -682,7 +734,7 @@ $('#leadForm').addEventListener('submit', async (event) => {
   payload.voucher_status = payload.voucher_status || 'PENDING';
   payload.voucher_channel = payload.voucher_channel || 'email';
 
-  const submitButton = form.querySelector('button');
+  const submitButton = $('#leadSubmit');
   submitButton.disabled = true;
   setMessage(form, 'Đang gửi yêu cầu…', true);
 
@@ -698,24 +750,41 @@ $('#leadForm').addEventListener('submit', async (event) => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Không thể gửi yêu cầu. Vui lòng thử lại.');
 
-    const notificationMessage = data.notification_status === 'SENT'
-      ? ' Thông báo cho đội ngũ đã được gửi.'
-      : data.notification_status === 'FAILED'
-        ? ' n8n báo thông báo chưa gửi được; đội ngũ sẽ kiểm tra lại.'
-        : ' Yêu cầu đã lưu; hệ thống chưa nhận được xác nhận thông báo từ n8n.';
-    const messageStatus = data.notification_status === 'SENT'
-      ? true
-      : data.notification_status === 'PENDING' ? 'warning' : false;
-    setMessage(form, `Yêu cầu đã được ghi nhận.${notificationMessage} Mã Lead ID: ${data.lead_id}`, messageStatus);
+    if (bookingMode) {
+      const emailMessage = data.notification_status === 'SENT'
+        ? ` Email xác nhận đã gửi đến ${email}; Sales cũng đã nhận thông tin.`
+        : ' Yêu cầu đã lưu nhưng email chưa được xác nhận gửi; hệ thống sẽ thử thông báo lại.';
+      setMessage(
+        form,
+        `Đã ghi nhận yêu cầu đặt tour. Ngày đi và tình trạng chỗ vẫn cần Sales xác nhận.${emailMessage} Mã yêu cầu: ${data.lead_id}`,
+        data.notification_status === 'SENT' ? true : 'warning',
+      );
+    } else {
+      const notificationMessage = data.notification_status === 'SENT'
+        ? ' Thông báo cho đội ngũ đã được gửi.'
+        : data.notification_status === 'FAILED'
+          ? ' n8n báo thông báo chưa gửi được; đội ngũ sẽ kiểm tra lại.'
+          : ' Yêu cầu đã lưu; hệ thống chưa nhận được xác nhận thông báo từ n8n.';
+      const messageStatus = data.notification_status === 'SENT'
+        ? true
+        : data.notification_status === 'PENDING' ? 'warning' : false;
+      setMessage(form, `Yêu cầu đã được ghi nhận.${notificationMessage} Mã Lead ID: ${data.lead_id}`, messageStatus);
+    }
     form.reset();
     behaviorTrackingField.checked = behaviorTrackingConsent;
     $('#tourName').value = '';
+    setBookingMode(false);
     updateBudgetPreview();
   } catch (error) {
     setMessage(form, error.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.');
   } finally {
     submitButton.disabled = false;
   }
+});
+
+$('#switchToInquiry').addEventListener('click', () => {
+  setBookingMode(false);
+  setMessage($('#leadForm'), 'Bạn đang gửi yêu cầu tư vấn, chưa phải yêu cầu đặt tour.', 'warning');
 });
 
 $('.menu').onclick = (event) => {

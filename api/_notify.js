@@ -3,8 +3,14 @@ import { supabase } from './_supabase.js';
 const TIMEOUT_MS = 15_000;
 
 export function automationPayload(row) {
+  const bookingRequest = row.lead_source === 'booking_form';
   return {
     lead_id: row.lead_id,
+    booking_request: bookingRequest,
+    booking_status: bookingRequest ? 'AWAITING_SALES_CONFIRMATION' : null,
+    booking_price_per_person: bookingRequest ? row.budget : null,
+    customer_email_confirmation_required: bookingRequest,
+    sales_email_notification_required: bookingRequest,
     name: row.name,
     contact: row.contact,
     email: row.email || null,
@@ -75,6 +81,13 @@ export async function deliverToAutomation(lead) {
 
   const ack = await webhook.json().catch(() => ({}));
   const body = ack && typeof ack === 'object' && !Array.isArray(ack) ? ack : {};
+  if (lead.lead_source === 'booking_form') {
+    if (body.customer_email_sent === true && body.sales_email_sent === true) return 'SENT';
+    if (body.customer_email_sent === false || body.sales_email_sent === false) return 'FAILED';
+    console.error('[notify] Booking emails were not both confirmed', { status: webhook.status });
+    return 'PENDING';
+  }
+
   const confirmed = body.notification_sent ?? body.email_sent;
 
   if (confirmed === true) return 'SENT';

@@ -10,6 +10,8 @@ Sau câu trả lời AI, nút **Yêu cầu tư vấn hành trình này** chuyể
 
 `POST /api/leads` nhận các trường biểu mẫu lead, header `Idempotency-Key` (UUID), và các tham số marketing `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` khi có. Các trường `email`, `phone`, `zalo_phone`, `source`, `voucher_code`, `voucher_status`, `voucher_channel` được lưu nếu có. `consent_to_contact` bắt buộc là `true`; tour được xác thực lại trên server.
 
+Nút **Đặt tour** từ tour đang hoạt động mở form yêu cầu đặt với email, ngày đi, số khách và tour bắt buộc. Gửi thành công lưu một lead có `lead_source = "booking_form"` và `lead_status = "NEW"`; API lấy tên tour, điểm đến, thời lượng và giá tham khảo từ catalog, không tin các giá trị này từ trình duyệt. Yêu cầu không giữ chỗ và không được đánh dấu `BOOKED`: ngày khởi hành, giá cuối cùng và tình trạng chỗ vẫn cần Sales xác nhận. N8n phải gửi email xác nhận đã nhận yêu cầu cho khách và email booking cho Sales; xem payload/ack chi tiết tại [n8n-workflow.md](./n8n-workflow.md). Dashboard website không hiển thị thông tin booking cá nhân. Không cần thêm bảng hoặc cột Supabase cho luồng này.
+
 Frontend gửi `engagement.tour_views` và `engagement.return_visit` khi khách đồng ý theo dõi hành vi tùy chọn; server tự tính điểm lead (gửi form 35 điểm, chọn tour 20, mỗi lượt xem tối đa 3 lượt × 5, quay lại 10; HOT từ 70, WARM từ 45, còn lại COLD). Giá trị `lead_score` hoặc `lead_level` do client tự gửi không được tin cậy. Phân loại nhu cầu theo sở thích, tour đã chọn và ngân sách thành các nhóm `family`, `budget`, `resort`, `explorer` (có thể có nhiều traits) hoặc `general`. Đây là heuristic minh bạch, không phải kết quả mô hình AI hay thay thế xác nhận của Sales.
 
 Chạy migration ở `docs/supabase-schema.sql` để thêm `score_signals`, `customer_segment`, `customer_traits`. Response thành công gồm `lead_id` và `notification_status`.
@@ -57,10 +59,10 @@ Không gửi PII vào `/api/aichat`. API không bịa giá hoặc tình trạng 
 
 ## n8n workflow gợi ý
 
-1. Webhook trigger nhận lead đã lưu từ `/api/leads`; kiểm tra `X-Automation-Secret`.
-2. Dùng `lead_score`, `lead_level`, `customer_segment` đã tính ở server (không tính lại hoặc tin vào điểm từ browser).
-3. Nếu có email thì gửi xác nhận/voucher qua Gmail/SMTP; ghi lead vào Google Sheets và báo Sales qua Slack/Telegram/Email.
-4. Trả về `{ "notification_sent": true, "lead_id": "..." }` khi workflow xác nhận đã thông báo. `email_sent` vẫn được hỗ trợ cho workflow cũ.
+1. Webhook `POST /webhook/travel-lead` nhận lead đã lưu từ `/api/leads`; kiểm tra `X-Automation-Secret` và chuẩn hóa `$json.body ?? $json` trước khi đọc payload.
+2. Dùng `lead_score`, `lead_level`, `customer_segment` đã tính ở server (không tính lại hoặc tin vào điểm từ browser); append dữ liệu cần thiết vào sheet `Leads`.
+3. Chia luồng `HOT`/`WARM`/`COLD` theo `lead_level`. Với `booking_request: true`, gửi email riêng cho khách và Sales; `booking_price_per_person` lấy từ giá tour trong catalog.
+4. Với lead thường, trả `{ "notification_sent": true, "lead_id": "..." }` chỉ sau khi Sales được thông báo (`email_sent` vẫn tương thích workflow cũ). Với booking, trả `customer_email_sent` và `sales_email_sent` riêng; backend chỉ xác nhận thành công khi cả hai đều `true`. Lấy `lead_id` từ payload chuẩn hóa, không dựa vào output node cuối.
 
 Ví dụ JSON để n8n nhận:
 

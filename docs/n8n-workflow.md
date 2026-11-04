@@ -13,7 +13,7 @@ Backend lưu lead vào Supabase trước khi gọi n8n. Nếu webhook timeout ho
 3. Đặt URL production của webhook vào biến server `N8N_WEBHOOK_URL` và cùng giá trị secret vào `N8N_WEBHOOK_SECRET`. Không đưa hai giá trị này lên frontend.
 4. Webhook nhận payload lead ở `body` (các cấu hình n8n có thể chuyển body thành root; kiểm tra output của Webhook node).
 
-`/api/leads` gửi các thông tin liên hệ đã được khách đồng ý cung cấp, nhu cầu, tóm tắt tư vấn AI, UTM, tour quan tâm, `lead_score`, `lead_level`, `score_signals`, `customer_segment` và `customer_traits`.
+`/api/leads` gửi các thông tin liên hệ đã được khách đồng ý cung cấp, nhu cầu, tóm tắt tư vấn AI, UTM, tour quan tâm, `lead_score`, `lead_level`, `score_signals`, `customer_segment` và `customer_traits`. Yêu cầu từ form đặt tour có `booking_request: true`, `booking_status: "AWAITING_SALES_CONFIRMATION"`, `booking_price_per_person`, và `lead_source: "booking_form"`.
 
 ## 2. Phân loại nhu cầu và ưu tiên lead
 
@@ -46,8 +46,33 @@ Thêm Google Sheets node dạng Append Row và ánh xạ tối thiểu:
 
 - Dùng IF node để phân tuyến: `HOT` thông báo ngay cho Sales; `WARM` vào hàng đợi follow-up; `COLD` gửi nội dung chăm sóc phù hợp.
 - Gửi lead đến email/Slack/Telegram nội bộ. Chỉ gửi voucher marketing cho khách qua email khi có email và consent/chính sách phù hợp; form hiện đồng ý cho mục đích liên hệ tư vấn.
-- Tạo workflow Schedule riêng để kiểm tra các lead `PENDING`/chưa được Sales xử lý trong Supabase/CRM, nhắc Sales theo SLA và đánh dấu bước follow-up. Tránh gửi lặp bằng cách ghi `last_follow_up_at` hoặc trạng thái xử lý.
+- Khi `booking_request` là `true`, gửi email xác nhận đã nhận yêu cầu tới `email` của khách và gửi toàn bộ thông tin booking tới email Sales. Email khách phải nói rõ ngày đi/tình trạng chỗ còn chờ Sales xác nhận; đây chưa phải xác nhận giữ chỗ. `booking_price_per_person` là giá tham khảo từ catalog, không phải báo giá đã chốt.
+- Vì webhook có thể được retry, dùng khóa `lead_id:customer` và `lead_id:sales` trong kho bền vững; lưu trạng thái từng kênh trước/sau khi gửi để retry không gửi lại kênh đã thành công. Xem [N8N_SETUP.md](./N8N_SETUP.md) về xử lý trạng thái `PROCESSING`, chạy tuần tự và giới hạn exactly-once.
+- Repository có Vercel Cron retry thông báo `PENDING`/`FAILED`, không có workflow nhắc Sales theo SLA. Nếu cần, tạo Schedule workflow riêng để kiểm tra lead chưa xử lý; chốt ngưỡng SLA và lưu trạng thái/lần nhắc để tránh gửi nhắc lặp.
 - Dùng credential n8n cho Gmail, Google Sheets và kênh thông báo; không đặt credential trong Code node hoặc payload.
+
+Payload booking có các trường trọng tâm sau (ngoài thông tin lead/UTM hiện tại):
+
+```json
+{
+  "lead_id": "uuid",
+  "booking_request": true,
+  "booking_status": "AWAITING_SALES_CONFIRMATION",
+  "booking_price_per_person": 7600000,
+  "customer_email_confirmation_required": true,
+  "sales_email_notification_required": true,
+  "name": "Nguyễn Văn A",
+  "email": "customer@example.com",
+  "phone": "0909123456",
+  "selected_tour_id": "da-nang-hoi-an",
+  "selected_tour_name": "Đà Nẵng - Hội An Chill",
+  "travel_date": "2027-01-14",
+  "party_size": 2,
+  "destination": "Đà Nẵng",
+  "duration": 4,
+  "lead_source": "booking_form"
+}
+```
 
 ## 5. Phản hồi webhook
 
@@ -62,12 +87,25 @@ Sau khi bước thông báo đã được xác nhận, Respond to Webhook trả 
 }
 ```
 
-`notification_sent` phản ánh xác nhận thông báo (ví dụ Sales đã nhận); nếu trường này không có, backend dùng `email_sent` để tương thích workflow cũ. Backend chuyển `notification_status` thành `SENT` khi trường được ưu tiên xác nhận `true`, `FAILED` khi trường được ưu tiên là `false`, và giữ `PENDING` nếu không có xác nhận. Không trả `true` trước khi workflow thực sự hoàn tất bước thông báo.
+Với lead thường, `notification_sent` phản ánh xác nhận thông báo (ví dụ Sales đã nhận); `email_sent` vẫn được hỗ trợ cho workflow cũ.
+
+Với booking (`booking_request: true`), Respond to Webhook phải trả về cả hai cờ sau và chỉ đặt `true` sau khi từng email tương ứng đã được gửi:
+
+```json
+{
+  "customer_email_sent": true,
+  "sales_email_sent": true,
+  "lead_id": "{{$json.lead_id}}",
+  "status": "ok"
+}
+```
+
+Backend chỉ ghi `notification_status = SENT` cho booking khi cả hai cờ đều `true`; cờ `false` tạo trạng thái `FAILED`, thiếu xác nhận giữ `PENDING` để retry. Không dùng `notification_sent` thay cho hai cờ booking này.
 
 ## 6. Kiểm thử trước khi bật
 
-1. Gửi lead thử qua form với dữ liệu liên hệ đã được đồng ý sử dụng.
+1. Gửi lead thử qua form tư vấn và form đặt tour với dữ liệu liên hệ đã được đồng ý sử dụng.
 2. Kiểm tra bản ghi Supabase trước: score/segment, UTM, `selected_tour_id`, `note`, `notification_status`.
-3. Kiểm tra Google Sheets và kênh Sales, sau đó xác nhận webhook trả `notification_sent: true`.
+3. Với booking, kiểm tra email khách và email Sales, sau đó xác nhận webhook trả đủ `customer_email_sent: true` và `sales_email_sent: true`.
 4. Thử email không có và lỗi node; lead phải vẫn được lưu, không báo gửi thành công giả.
 5. Theo dõi các lead `PENDING` và cấu hình quy trình retry có chống gửi trùng.

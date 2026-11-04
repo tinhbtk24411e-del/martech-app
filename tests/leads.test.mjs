@@ -26,7 +26,12 @@ function leadBody(overrides = {}) {
   };
 }
 
-function supabaseMock({ insertedLeads, automationPayloads, failScoringColumns = false }) {
+function supabaseMock({
+  insertedLeads,
+  automationPayloads,
+  failScoringColumns = false,
+  automationAck = { notification_sent: true },
+}) {
   return async (input, options = {}) => {
     const url = String(input);
     if (url.includes('/rest/v1/leads?request_id=')) return json([]);
@@ -47,7 +52,7 @@ function supabaseMock({ insertedLeads, automationPayloads, failScoringColumns = 
     }
     if (url === ENV.N8N_WEBHOOK_URL) {
       automationPayloads.push(JSON.parse(options.body));
-      return json({ notification_sent: true });
+      return json(automationAck);
     }
     throw new Error(`Unexpected fetch: ${url}`);
   };
@@ -111,4 +116,73 @@ test('keeps lead PENDING when n8n does not confirm delivery', async () => {
     assert.equal(res.statusCode, 201);
     assert.equal(res.body.notification_status, 'PENDING');
   }));
+});
+
+test('stores a booking request with server tour details and requires both booking emails', async () => {
+  const insertedLeads = [];
+  const automationPayloads = [];
+  const departure = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const ack = { customer_email_sent: true, sales_email_sent: true };
+  await withEnv(ENV, () => withFetch(supabaseMock({
+    insertedLeads,
+    automationPayloads,
+    automationAck: ack,
+  }), async () => {
+    const res = await submit('192.0.2.40', 'booking-test', leadBody({
+      booking_request: true,
+      email: 'booker@example.test',
+      travel_date: departure,
+      budget: 1,
+      destination: 'Sai điểm đến',
+      duration: 1,
+    }));
+    assert.equal(res.statusCode, 201);
+    assert.equal(res.body.notification_status, 'SENT');
+    assert.equal(insertedLeads[0].lead_source, 'booking_form');
+    assert.equal(insertedLeads[0].lead_status, 'NEW');
+    assert.equal(insertedLeads[0].destination, 'Đà Nẵng');
+    assert.equal(insertedLeads[0].duration, 4);
+    assert.equal(insertedLeads[0].budget, 7_600_000);
+    assert.equal(insertedLeads[0].travel_date, departure);
+    assert.match(insertedLeads[0].note, /Chờ Sales xác nhận/);
+    assert.equal(automationPayloads[0].booking_request, true);
+    assert.equal(automationPayloads[0].booking_status, 'AWAITING_SALES_CONFIRMATION');
+    assert.equal(automationPayloads[0].booking_price_per_person, 7_600_000);
+    assert.equal(automationPayloads[0].customer_email_confirmation_required, true);
+    assert.equal(automationPayloads[0].sales_email_notification_required, true);
+  }));
+});
+
+test('does not confirm booking emails when n8n only acknowledges a generic notification', async () => {
+  const insertedLeads = [];
+  const automationPayloads = [];
+  const departure = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  await withEnv(ENV, () => withFetch(supabaseMock({
+    insertedLeads,
+    automationPayloads,
+    automationAck: { notification_sent: true },
+  }), async () => {
+    const res = await submit('192.0.2.41', 'booking-pending', leadBody({
+      booking_request: true,
+      travel_date: departure,
+    }));
+    assert.equal(res.statusCode, 201);
+    assert.equal(res.body.notification_status, 'PENDING');
+  }));
+});
+
+test('requires a valid email, selected tour, and future date for booking requests', async () => {
+  const invalidDate = await submit('192.0.2.42', 'booking-invalid-date', leadBody({
+    booking_request: true,
+    travel_date: 'not-a-date',
+  }));
+  assert.equal(invalidDate.statusCode, 400);
+
+  const missingEmail = await submit('192.0.2.43', 'booking-missing-email', leadBody({
+    booking_request: true,
+    email: '',
+    phone: '0909123456',
+    travel_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  }));
+  assert.equal(missingEmail.statusCode, 400);
 });
