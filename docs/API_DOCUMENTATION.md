@@ -10,7 +10,7 @@ Sau câu trả lời AI, nút **Yêu cầu tư vấn hành trình này** chuyể
 
 `POST /api/leads` nhận các trường biểu mẫu lead, header `Idempotency-Key` (UUID), và các tham số marketing `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` khi có. Các trường `email`, `phone`, `zalo_phone`, `source`, `voucher_code`, `voucher_status`, `voucher_channel` được lưu nếu có. `consent_to_contact` bắt buộc là `true`; tour được xác thực lại trên server.
 
-Nút **Đặt tour** từ tour đang hoạt động mở form yêu cầu đặt với email, ngày đi, số khách và tour bắt buộc. Gửi thành công lưu một lead có `lead_source = "booking_form"` và `lead_status = "NEW"`; API lấy tên tour, điểm đến, thời lượng và giá tham khảo từ catalog, không tin các giá trị này từ trình duyệt. Yêu cầu chưa giữ chỗ: Sales nhận thông báo ngay, còn email xác nhận đặt tour cho khách chỉ gửi khi Sales chuyển trạng thái sang `BOOKED`. Chạy `docs/supabase-schema.sql` để thêm trạng thái và số lần retry email booking. Xem luồng webhook tại [n8n-workflow.md](./n8n-workflow.md). Dashboard website không hiển thị thông tin booking cá nhân.
+Nút **Đặt tour** từ tour đang hoạt động mở form yêu cầu đặt với email, ngày đi, số khách và tour bắt buộc. Gửi thành công lưu một lead có `lead_source = "booking_form"` và `lead_status = "NEW"`; API lấy tên tour, điểm đến, thời lượng và giá tham khảo từ catalog, không tin các giá trị này từ trình duyệt. Yêu cầu chưa giữ chỗ: Sales nhận thông báo ngay, còn email xác nhận đặt tour cho khách chỉ gửi khi Sales chuyển trạng thái sang `BOOKED`. Chạy `docs/supabase-schema.sql` để thêm trạng thái và số lần retry email booking. Xem luồng webhook tại [n8n-workflow.md](./n8n-workflow.md).
 
 Frontend gửi `engagement.tour_views` và `engagement.return_visit` khi khách đồng ý theo dõi hành vi tùy chọn; server tự tính điểm lead (gửi form 35 điểm, chọn tour 20, mỗi lượt xem tối đa 3 lượt × 5, quay lại 10; HOT từ 70, WARM từ 45, còn lại COLD). Giá trị `lead_score` hoặc `lead_level` do client tự gửi không được tin cậy. Phân loại nhu cầu theo sở thích, tour đã chọn và ngân sách thành các nhóm `family`, `budget`, `resort`, `explorer` (có thể có nhiều traits) hoặc `general`. Đây là heuristic minh bạch, không phải kết quả mô hình AI hay thay thế xác nhận của Sales.
 
@@ -86,7 +86,7 @@ Ví dụ JSON để n8n nhận:
 }
 ```
 
-Dashboard tại [dashboard.html](../dashboard.html) gọi `GET /api/kpi` để hiển thị dữ liệu lead tổng hợp từ Supabase trong 180 ngày gần nhất: trạng thái Sales, mức ưu tiên, UTM source, lead theo tháng và số lead đã chọn tour. API chỉ trả số liệu tổng hợp, phân trang khi đọc Supabase và không trả thông tin liên hệ. Dashboard không hiển thị traffic, doanh thu hoặc chi phí quảng cáo vì các dữ liệu đó hiện chưa được thu thập; CSV tải xuống chỉ chứa các số liệu lead thực tế này.
+Dashboard tại [dashboard.html](../dashboard.html) gọi `GET /api/kpi` để hiển thị KPI tổng hợp; endpoint này không trả thông tin liên hệ. Khu **Xác nhận booking** yêu cầu mã Sales và hiển thị tối đa 100 yêu cầu gần nhất; `GET /api/sales-bookings` chỉ trả dữ liệu liên hệ khi `X-Sales-Secret` hợp lệ. Sales dùng nút chuyển trạng thái lần lượt NEW → CONTACTED → QUOTED → BOOKED; bước cuối gửi email cho khách. Mã Sales chỉ được giữ trong bộ nhớ của trang hiện tại, không lưu vào browser storage. Dashboard không hiển thị traffic, doanh thu hoặc chi phí quảng cáo vì các dữ liệu đó hiện chưa được thu thập; CSV chỉ chứa số liệu KPI tổng hợp.
 
 ## v2: vòng đời lead, retry và KPI
 
@@ -95,6 +95,8 @@ Dashboard tại [dashboard.html](../dashboard.html) gọi `GET /api/kpi` để h
 `POST /api/lead-status` dành cho Sales. Yêu cầu header `X-Sales-Secret` khớp với `SALES_UPDATE_SECRET`. Body: `{ "lead_id": "...", "lead_status": "CONTACTED", "sales_note": "tùy chọn" }`. Trạng thái hợp lệ: NEW, CONTACTED, QUOTED, BOOKED, LOST. Luồng cho phép: NEW→CONTACTED/LOST; CONTACTED→QUOTED/LOST; QUOTED→BOOKED/LOST/CONTACTED; LOST→CONTACTED; BOOKED là trạng thái cuối. Chuyển sai luật trả `409`. Cập nhật có điều kiện trên trạng thái đã đọc, nên hai người sửa cùng lúc sẽ không ghi đè nhau.
 
 `GET /api/retry-notifications` được Vercel Cron gọi (cấu hình trong `vercel.json`, xác thực bằng `Authorization: Bearer CRON_SECRET`). Job lấy tối đa 20 lead có `notification_status` là PENDING hoặc FAILED, cũ hơn 2 phút và chưa vượt 5 lần thử. Mỗi lead được "nhận" bằng một lần cập nhật có điều kiện trên `notification_attempts` để các lần chạy chồng nhau không gửi trùng. Lưu ý: nếu n8n đã gửi thành công nhưng bước ghi trạng thái về Supabase thất bại, lead vẫn ở PENDING và có thể bị gửi lại. n8n nên dùng `lead_id` để bỏ qua thông báo trùng.
+
+`GET /api/sales-bookings` yêu cầu header `X-Sales-Secret` khớp `SALES_UPDATE_SECRET`; chỉ trả tối đa 100 booking gần nhất và không cache. `POST /api/lead-status` dùng cùng header để cập nhật pipeline; chuyển booking sang `BOOKED` sẽ gửi email khách. Trạng thái xác nhận email lỗi được retry bởi cron.
 
 `GET /api/kpi` trả số liệu tổng hợp ẩn danh của 180 ngày gần nhất: tổng lead, theo trạng thái, theo mức ưu tiên, theo nguồn UTM, theo tháng. Không trả thông tin liên hệ. Dashboard dùng endpoint này để hiện khối "Dữ liệu thật" khi có kết nối Supabase.
 

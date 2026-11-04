@@ -152,16 +152,21 @@ export async function deliverBookingConfirmation(lead) {
   return 'PENDING';
 }
 
-export async function claimBookingConfirmation(lead) {
+export async function claimBookingConfirmation(lead, recoverStale = false) {
   const attempts = Number(lead.booking_confirmation_attempts || 0);
+  const statusFilter = recoverStale
+    ? `&booking_confirmation_status=eq.PROCESSING` +
+      `&last_booking_confirmation_at=eq.${encodeURIComponent(lead.last_booking_confirmation_at)}`
+    : '&booking_confirmation_status=in.(PENDING,FAILED)';
   const response = await supabase(
     `leads?lead_id=eq.${encodeURIComponent(lead.lead_id)}` +
-      `&lead_status=eq.BOOKED&booking_confirmation_status=in.(PENDING,FAILED)` +
+      `&lead_status=eq.BOOKED${statusFilter}` +
       `&booking_confirmation_attempts=eq.${attempts}`,
     {
       method: 'PATCH',
       headers: { Prefer: 'return=representation' },
       body: JSON.stringify({
+        booking_confirmation_status: 'PROCESSING',
         booking_confirmation_attempts: attempts + 1,
         last_booking_confirmation_at: new Date().toISOString(),
       }),

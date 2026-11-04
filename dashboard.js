@@ -2,7 +2,15 @@ const $ = (selector) => document.querySelector(selector);
 const numberFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
 const percentFormat = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 });
 const LEAD_STATUSES = ['NEW', 'CONTACTED', 'QUOTED', 'BOOKED', 'LOST'];
+const SALES_STATUS_LABELS = {
+  NEW: 'Mới',
+  CONTACTED: 'Đã liên hệ',
+  QUOTED: 'Đã báo giá',
+  BOOKED: 'Đã xác nhận',
+  LOST: 'Đã đóng',
+};
 let liveData = null;
+let salesSecret = '';
 
 function count(value) {
   const parsed = Number(value);
@@ -131,6 +139,179 @@ async function loadKpi() {
   }
 }
 
+function salesRequestOptions(method = 'GET', body) {
+  return {
+    method,
+    cache: 'no-store',
+    headers: {
+      'X-Sales-Secret': salesSecret,
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  };
+}
+
+function bookingAction(status) {
+  if (status === 'NEW') return ['CONTACTED', 'Đánh dấu đã liên hệ'];
+  if (status === 'CONTACTED') return ['QUOTED', 'Đánh dấu đã báo giá'];
+  if (status === 'QUOTED') return ['BOOKED', 'Xác nhận booking & gửi email'];
+  return null;
+}
+
+function bookingDetail(label, value) {
+  const wrapper = document.createElement('div');
+  const term = document.createElement('dt');
+  term.textContent = label;
+  const description = document.createElement('dd');
+  description.textContent = value || 'Chưa có';
+  wrapper.append(term, description);
+  return wrapper;
+}
+
+function renderBookings(bookings) {
+  const container = $('#salesBookings');
+  if (!bookings.length) {
+    const empty = document.createElement('p');
+    empty.className = 'dashboard-message';
+    empty.textContent = 'Chưa có yêu cầu đặt tour nào.';
+    container.replaceChildren(empty);
+    container.hidden = false;
+    return;
+  }
+
+  container.replaceChildren(...bookings.map((booking) => {
+    const card = document.createElement('article');
+    card.className = 'booking-card';
+
+    const heading = document.createElement('div');
+    heading.className = 'booking-card-heading';
+    const title = document.createElement('h3');
+    title.textContent = booking.name || 'Khách đặt tour';
+    const status = document.createElement('span');
+    status.className = 'booking-status';
+    status.textContent = SALES_STATUS_LABELS[booking.lead_status] || booking.lead_status || 'Chưa rõ';
+    heading.append(title, status);
+
+    const details = document.createElement('dl');
+    details.className = 'booking-details';
+    details.append(
+      bookingDetail('Tour', booking.selected_tour_name),
+      bookingDetail('Điểm đến', booking.destination),
+      bookingDetail('Ngày đi', booking.travel_date),
+      bookingDetail('Số khách', booking.party_size ? String(booking.party_size) : ''),
+      bookingDetail('Email', booking.email),
+      bookingDetail('Điện thoại', booking.phone || booking.contact),
+      bookingDetail('Mã yêu cầu', booking.lead_id),
+    );
+
+    card.append(heading, details);
+    if (booking.lead_status === 'BOOKED') {
+      const state = document.createElement('p');
+      state.className = 'booking-confirmation-state';
+      const confirmationStatus = booking.booking_confirmation_status || 'PENDING';
+      state.textContent = confirmationStatus === 'SENT'
+        ? 'Email xác nhận đã gửi cho khách.'
+        : confirmationStatus === 'PROCESSING'
+          ? 'Đang gửi email xác nhận cho khách…'
+        : confirmationStatus === 'FAILED'
+          ? 'Gửi email thất bại; hệ thống sẽ thử lại.'
+          : 'Đang chờ xác nhận gửi email; hệ thống sẽ thử lại nếu cần.';
+      card.append(state);
+    }
+
+    const action = bookingAction(booking.lead_status);
+    if (action) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'booking-action';
+      button.dataset.leadId = booking.lead_id;
+      button.dataset.nextStatus = action[0];
+      button.textContent = action[1];
+      card.append(button);
+    }
+    return card;
+  }));
+  container.hidden = false;
+}
+
+function setSalesMessage(text, kind = '') {
+  const message = $('#salesMessage');
+  message.textContent = text;
+  message.className = `dashboard-message${kind ? ` ${kind}` : ''}`;
+  message.hidden = false;
+}
+
+async function loadSalesBookings() {
+  const response = await fetch('/api/sales-bookings', salesRequestOptions());
+  const data = await response.json();
+  if (response.status === 401) {
+    salesSecret = '';
+    throw new Error('Mã truy cập Sales không đúng hoặc đã hết hiệu lực.');
+  }
+  if (!response.ok) throw new Error(data.error || 'Không tải được danh sách booking.');
+  if (!Array.isArray(data.bookings)) throw new Error('Danh sách booking trả về không đúng định dạng.');
+  renderBookings(data.bookings);
+  setSalesMessage(`Đang hiển thị ${numberFormat.format(data.bookings.length)} booking gần nhất.`, 'success');
+}
+
+async function connectSales(event) {
+  event.preventDefault();
+  const input = $('#salesSecret');
+  const button = $('#salesConnect');
+  salesSecret = input.value;
+  button.disabled = true;
+  $('#salesBookings').hidden = true;
+  setSalesMessage('Đang xác thực và tải booking…');
+  try {
+    await loadSalesBookings();
+    input.value = '';
+  } catch (error) {
+    setSalesMessage(error.message || 'Không tải được booking.', 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function updateBooking(event) {
+  const button = event.target.closest('button[data-lead-id][data-next-status]');
+  if (!button) return;
+  const { leadId, nextStatus } = button.dataset;
+  if (nextStatus === 'BOOKED' &&
+      !window.confirm('Xác nhận booking? Hệ thống sẽ gửi email xác nhận cho khách.')) return;
+
+  button.disabled = true;
+  setSalesMessage(nextStatus === 'BOOKED' ? 'Đang xác nhận booking và gửi email…' : 'Đang cập nhật trạng thái…');
+  try {
+    const response = await fetch('/api/lead-status', salesRequestOptions('POST', {
+      lead_id: leadId,
+      lead_status: nextStatus,
+    }));
+    const data = await response.json();
+    if (response.status === 401) {
+      salesSecret = '';
+      throw new Error('Mã truy cập Sales không đúng hoặc đã hết hiệu lực.');
+    }
+    if (!response.ok) throw new Error(data.error || 'Không cập nhật được booking.');
+
+    await loadSalesBookings();
+    if (nextStatus === 'BOOKED' && data.booking_confirmation_status !== 'SENT') {
+      setSalesMessage(
+        'Booking đã xác nhận nhưng email chưa được xác nhận gửi; hệ thống sẽ thử lại theo lịch.',
+        'error',
+      );
+    } else {
+      setSalesMessage(
+        nextStatus === 'BOOKED' ? 'Đã xác nhận booking và gửi email cho khách.' : 'Đã cập nhật trạng thái booking.',
+        'success',
+      );
+    }
+  } catch (error) {
+    setSalesMessage(error.message || 'Không cập nhật được booking.', 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function csvCell(value) {
   return `"${String(value).replace(/"/g, '""')}"`;
 }
@@ -164,4 +345,6 @@ function exportCsv() {
 
 $('#refreshKpi').addEventListener('click', loadKpi);
 $('#exportCsv').addEventListener('click', exportCsv);
+$('#salesAuthForm').addEventListener('submit', connectSales);
+$('#salesBookings').addEventListener('click', updateBooking);
 loadKpi();

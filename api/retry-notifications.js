@@ -11,6 +11,7 @@ import {
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 20;
 const MIN_AGE_MS = 2 * 60 * 1000;
+const STALE_CONFIRMATION_MS = 15 * 60 * 1000;
 
 // Invoked by Vercel Cron (sends Authorization: Bearer CRON_SECRET).
 // Retries pending Sales notifications and post-booking customer confirmations.
@@ -92,8 +93,26 @@ export default async function handler(req, res) {
     }
 
     const confirmations = await confirmationQuery.json();
-    for (const lead of confirmations) {
-      const claimed = await claimBookingConfirmation(lead);
+    const staleCutoff = new Date(Date.now() - STALE_CONFIRMATION_MS).toISOString();
+    const staleQuery = await supabase(
+      `leads?lead_status=eq.BOOKED&lead_source=eq.booking_form` +
+        `&booking_confirmation_status=eq.PROCESSING` +
+        `&booking_confirmation_attempts=lt.${MAX_ATTEMPTS}` +
+        `&last_booking_confirmation_at=lt.${encodeURIComponent(staleCutoff)}` +
+        `&created_at=lt.${encodeURIComponent(cutoff)}` +
+        `&order=created_at.asc&limit=${BATCH_SIZE}&select=*`,
+    );
+    if (!staleQuery.ok) {
+      return send(res, 503, { error: 'Không đọc được email booking bị gián đoạn.' });
+    }
+
+    const staleConfirmations = await staleQuery.json();
+    const confirmationCandidates = [
+      ...confirmations.map((lead) => ({ lead, recoverStale: false })),
+      ...staleConfirmations.map((lead) => ({ lead, recoverStale: true })),
+    ];
+    for (const { lead, recoverStale } of confirmationCandidates) {
+      const claimed = await claimBookingConfirmation(lead, recoverStale);
       if (claimed === null) {
         result.booking_confirmation_pending += 1;
         continue;

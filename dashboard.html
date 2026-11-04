@@ -26,6 +26,21 @@
 
       <p id="dashboardMessage" class="dashboard-message" role="status" aria-live="polite">Đang tải dữ liệu lead…</p>
 
+      <section class="panel sales-panel" aria-labelledby="salesHeading">
+        <div class="panel-heading">
+          <div><p class="eyebrow">KHU VỰC NỘI BỘ</p><h2 id="salesHeading">Xác nhận booking</h2></div>
+          <span>Chỉ Sales được cấp quyền</span>
+        </div>
+        <p class="sales-intro">Mở booking để xem thông tin khách. Chuyển lần lượt qua Đã liên hệ, Đã báo giá, rồi Xác nhận booking để gửi email cho khách.</p>
+        <form id="salesAuthForm" class="sales-auth">
+          <label for="salesSecret">Mã truy cập Sales</label>
+          <input id="salesSecret" name="salesSecret" type="password" autocomplete="current-password" required>
+          <button id="salesConnect" type="submit">Mở danh sách booking</button>
+        </form>
+        <p id="salesMessage" class="dashboard-message" role="status" aria-live="polite" hidden></p>
+        <div id="salesBookings" class="booking-list" hidden></div>
+      </section>
+
       <div id="dashboardContent" hidden>
         <section class="kpi-grid" id="kpiGrid" aria-label="Chỉ số lead"></section>
 
@@ -61,7 +76,7 @@
         </section>
       </div>
     </main>
-    <footer>Dữ liệu tổng hợp, không hiển thị thông tin liên hệ cá nhân.</footer>
+    <footer>KPI chỉ hiển thị dữ liệu tổng hợp. Khu vực booking yêu cầu mã truy cập Sales.</footer>
     <script type="module" src="dashboard.js"></script>
   </body>
 </html>

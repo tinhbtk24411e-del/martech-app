@@ -161,13 +161,9 @@ create index if not exists leads_booking_confirmation_retry_idx
   on public.leads (booking_confirmation_status, booking_confirmation_attempts, created_at)
   where lead_status = 'BOOKED' and lead_source = 'booking_form';
 
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'leads_booking_confirmation_status_check'
-  ) then
-    alter table public.leads
-      add constraint leads_booking_confirmation_status_check
-      check (booking_confirmation_status in ('NOT_READY', 'PENDING', 'FAILED', 'SENT'));
-  end if;
-end $$;
+alter table public.leads
+  drop constraint if exists leads_booking_confirmation_status_check;
+
+alter table public.leads
+  add constraint leads_booking_confirmation_status_check
+  check (booking_confirmation_status in ('NOT_READY', 'PENDING', 'PROCESSING', 'FAILED', 'SENT'));

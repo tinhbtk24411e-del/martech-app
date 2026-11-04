@@ -31,6 +31,7 @@ test('retry job claims a pending lead, re-sends it, and records SENT', async () 
     const url = String(input);
     if (url.includes('notification_status=in.(PENDING,FAILED)')) return json([pending]);
     if (url.includes('booking_confirmation_status=in.(PENDING,FAILED)') && !options.method) return json([]);
+    if (url.includes('booking_confirmation_status=eq.PROCESSING') && !options.method) return json([]);
     if (url.includes('notification_attempts=eq.0') && options.method === 'PATCH') {
       seen.claim += 1;
       return json([{ lead_id: pending.lead_id }]);
@@ -73,6 +74,7 @@ test('retry job sends pending booking confirmation email after Sales booking', a
     const url = String(input);
     if (url.includes('notification_status=in.(PENDING,FAILED)')) return json([]);
     if (url.includes('booking_confirmation_status=in.(PENDING,FAILED)') && !options.method) return json([pending]);
+    if (url.includes('booking_confirmation_status=eq.PROCESSING') && !options.method) return json([]);
     if (url.includes('booking_confirmation_status=in.(PENDING,FAILED)') && options.method === 'PATCH') {
       seen.claim += 1;
       return json([{ ...pending, booking_confirmation_attempts: 1 }]);
