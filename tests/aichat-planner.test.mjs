@@ -21,18 +21,20 @@ function createResponse() {
   };
 }
 
-test('planner mode returns a validated AI plan without requiring the tour catalog', async () => {
+test('planner mode retries invalid AI output and returns a validated plan without the tour catalog', async () => {
   const previousKey = process.env.OPENROUTER_API_KEY;
   const previousFetch = globalThis.fetch;
   process.env.OPENROUTER_API_KEY = 'test-only-key';
   let requestBody;
+  let requestCount = 0;
   globalThis.fetch = async (url, options) => {
     assert.equal(String(url), 'https://openrouter.ai/api/v1/chat/completions');
+    requestCount += 1;
     requestBody = JSON.parse(options.body);
     return new Response(JSON.stringify({
       choices: [{
         message: {
-          content: JSON.stringify({
+          content: requestCount === 1 ? 'Not valid plan JSON' : JSON.stringify({
             destination: 'Huế',
             summary: 'Di sản và ẩm thực.',
             days: [
@@ -72,8 +74,10 @@ test('planner mode returns a validated AI plan without requiring the tour catalo
     assert.equal(response.data.plan.destination, 'Huế');
     assert.equal(response.data.plan.costs.total, 4100000);
     assert.equal(response.data.plan.budget_status, 'not_set');
+    assert.equal(requestCount, 2);
     assert.equal(requestBody.model, 'openrouter/free');
     assert.equal(requestBody.messages[0].role, 'system');
+    assert.match(requestBody.messages.at(-1).content, /tạo lại lịch trình hoàn chỉnh/);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENROUTER_API_KEY;

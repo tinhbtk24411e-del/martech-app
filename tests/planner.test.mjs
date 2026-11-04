@@ -22,8 +22,10 @@ const samplePlan = {
   },
 };
 
-test('parses JSON responses, including fenced JSON', () => {
+test('parses plain, fenced, wrapped, and text-block JSON responses', () => {
   assert.deepEqual(parsePlannerContent('```json\n{"ok":true}\n```'), { ok: true });
+  assert.deepEqual(parsePlannerContent('Here is the plan:\n{"ok":true}\nDone.'), { ok: true });
+  assert.deepEqual(parsePlannerContent([{ type: 'text', text: '{"ok":' }, { type: 'text', text: 'true}' }]), { ok: true });
   assert.equal(parsePlannerContent('not JSON'), null);
 });
 

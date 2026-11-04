@@ -9,11 +9,40 @@ function price(value) {
 }
 
 export function parsePlannerContent(content) {
-  if (typeof content !== 'string') return null;
-  const trimmed = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  const textContent = Array.isArray(content)
+    ? content.map((part) => typeof part?.text === 'string' ? part.text : '').join('\n')
+    : content;
+  if (typeof textContent !== 'string') return null;
+  const trimmed = textContent.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   try {
     return JSON.parse(trimmed);
   } catch {
+    const start = trimmed.indexOf('{');
+    if (start < 0) return null;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let index = start; index < trimmed.length; index += 1) {
+      const character = trimmed[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (character === '\\') escaped = true;
+        else if (character === '"') inString = false;
+        continue;
+      }
+      if (character === '"') inString = true;
+      else if (character === '{') depth += 1;
+      else if (character === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            return JSON.parse(trimmed.slice(start, index + 1));
+          } catch {
+            return null;
+          }
+        }
+      }
+    }
     return null;
   }
 }

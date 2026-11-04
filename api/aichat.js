@@ -108,42 +108,51 @@ async function plannerResponse({ message, history, trip, apiKey, res }) {
   ];
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://martech-app.vercel.app',
-        'X-OpenRouter-Title': 'VietJourney',
-      },
-      body: JSON.stringify({
-        model: 'openrouter/free',
-        messages,
-        temperature: 0.6,
-        max_tokens: 4500,
-      }),
-    });
-
-    if (!response.ok) {
-      const details = await response.text();
-      console.error('[aichat] Planner OpenRouter error:', {
-        status: response.status,
-        details: details.slice(0, 1500),
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const requestMessages = attempt === 0
+        ? messages
+        : [
+            ...messages,
+            {
+              role: 'user',
+              content: `Hãy tạo lại lịch trình hoàn chỉnh. Chỉ trả về một JSON hợp lệ, không markdown hay lời dẫn; cần đúng ${trip.days} ngày, mỗi ngày 1-4 hoạt động và đủ bốn dịch vụ flight, hotel, transport, meals với giá là số nguyên không âm.`,
+            },
+          ];
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://martech-app.vercel.app',
+          'X-OpenRouter-Title': 'VietJourney',
+        },
+        body: JSON.stringify({
+          model: 'openrouter/free',
+          messages: requestMessages,
+          temperature: attempt === 0 ? 0.6 : 0.2,
+          max_tokens: 6000,
+        }),
       });
-      if (response.status === 429) {
-        return send(res, 503, { success: false, error: 'Các model AI miễn phí đang quá tải. Vui lòng thử lại sau ít phút.' });
-      }
-      return send(res, 502, { success: false, error: 'AI đang gặp sự cố. Vui lòng thử lại.' });
-    }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    const plan = normalizePlannerPlan(parsePlannerContent(content), trip);
-    if (!plan) {
-      console.error('[aichat] Planner returned invalid plan data');
-      return send(res, 502, { success: false, error: 'AI chưa thể tạo lịch trình hợp lệ. Vui lòng thử lại.' });
+      if (!response.ok) {
+        const details = await response.text();
+        console.error('[aichat] Planner OpenRouter error:', {
+          status: response.status,
+          details: details.slice(0, 1500),
+        });
+        if (response.status === 429) {
+          return send(res, 503, { success: false, error: 'Các model AI miễn phí đang quá tải. Vui lòng thử lại sau ít phút.' });
+        }
+        return send(res, 502, { success: false, error: 'AI đang gặp sự cố. Vui lòng thử lại.' });
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+      const plan = normalizePlannerPlan(parsePlannerContent(content), trip);
+      if (plan) return send(res, 200, { success: true, plan });
     }
-    return send(res, 200, { success: true, plan });
+    console.error('[aichat] Planner returned invalid plan data after retry');
+    return send(res, 502, { success: false, error: 'AI chưa thể tạo lịch trình hợp lệ. Vui lòng thử lại.' });
   } catch (error) {
     console.error('[aichat] Planner request failed:', { errorCode: error?.name || 'UNKNOWN' });
     return send(res, 502, {
