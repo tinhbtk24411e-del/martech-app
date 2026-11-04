@@ -124,12 +124,12 @@ test('keeps lead PENDING when n8n does not confirm delivery', async () => {
   }));
 });
 
-test('stores a booking request with server tour details and requires both booking emails', async () => {
+test('stores booking details, notifies Sales, and defers the customer confirmation email', async () => {
   const insertedLeads = [];
   const automationPayloads = [];
   const automationUrls = [];
   const departure = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const ack = { customer_email_sent: true, sales_email_sent: true };
+  const ack = { sales_email_sent: true };
   await withEnv(ENV, () => withFetch(supabaseMock({
     insertedLeads,
     automationPayloads,
@@ -156,8 +156,9 @@ test('stores a booking request with server tour details and requires both bookin
     assert.equal(automationPayloads[0].booking_request, true);
     assert.equal(automationPayloads[0].booking_status, 'AWAITING_SALES_CONFIRMATION');
     assert.equal(automationPayloads[0].booking_price_per_person, 7_600_000);
-    assert.equal(automationPayloads[0].customer_email_confirmation_required, true);
+    assert.equal(automationPayloads[0].customer_email_confirmation_required, false);
     assert.equal(automationPayloads[0].sales_email_notification_required, true);
+    assert.equal(automationPayloads[0].booking_event, undefined);
     assert.deepEqual(automationUrls, [ENV.N8N_BOOKING_WEBHOOK_URL]);
   }));
 });

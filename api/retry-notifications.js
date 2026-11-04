@@ -1,14 +1,20 @@
 import { secretMatches, send } from './_shared.js';
 import { supabase } from './_supabase.js';
-import { deliverToAutomation, updateNotificationStatus } from './_notify.js';
+import {
+  claimBookingConfirmation,
+  deliverBookingConfirmation,
+  deliverToAutomation,
+  updateBookingConfirmationStatus,
+  updateNotificationStatus,
+} from './_notify.js';
 
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 20;
 const MIN_AGE_MS = 2 * 60 * 1000;
 
 // Invoked by Vercel Cron (sends Authorization: Bearer CRON_SECRET).
-// Retries leads whose Sales notification is PENDING or FAILED.
-// Claims each lead with a compare-and-set on notification_attempts so overlapping runs do not double-send.
+// Retries pending Sales notifications and post-booking customer confirmations.
+// Compare-and-set claims prevent overlapping runs from sending the same lead concurrently.
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -33,7 +39,17 @@ export default async function handler(req, res) {
     if (!query.ok) return send(res, 503, { error: 'Không đọc được lead chờ thông báo.' });
 
     const leads = await query.json();
-    const result = { checked: leads.length, sent: 0, failed: 0, pending: 0, skipped: 0 };
+    const result = {
+      checked: leads.length,
+      sent: 0,
+      failed: 0,
+      pending: 0,
+      skipped: 0,
+      booking_confirmation_sent: 0,
+      booking_confirmation_failed: 0,
+      booking_confirmation_pending: 0,
+      booking_confirmation_skipped: 0,
+    };
 
     for (const lead of leads) {
       const attempts = Number(lead.notification_attempts || 0);
@@ -62,6 +78,37 @@ export default async function handler(req, res) {
       await updateNotificationStatus(lead.lead_id, status);
       if (status === 'SENT') result.sent += 1;
       else result.failed += 1;
+    }
+
+    const confirmationQuery = await supabase(
+      `leads?lead_status=eq.BOOKED&lead_source=eq.booking_form` +
+        `&booking_confirmation_status=in.(PENDING,FAILED)` +
+        `&booking_confirmation_attempts=lt.${MAX_ATTEMPTS}` +
+        `&created_at=lt.${encodeURIComponent(cutoff)}` +
+        `&order=created_at.asc&limit=${BATCH_SIZE}&select=*`,
+    );
+    if (!confirmationQuery.ok) {
+      return send(res, 503, { error: 'Không đọc được email xác nhận booking đang chờ.' });
+    }
+
+    const confirmations = await confirmationQuery.json();
+    for (const lead of confirmations) {
+      const claimed = await claimBookingConfirmation(lead);
+      if (claimed === null) {
+        result.booking_confirmation_pending += 1;
+        continue;
+      }
+      if (claimed === false) {
+        result.booking_confirmation_skipped += 1;
+        continue;
+      }
+
+      const status = await deliverBookingConfirmation(lead);
+      const recorded = await updateBookingConfirmationStatus(lead.lead_id, status);
+      const finalStatus = recorded ? status : 'PENDING';
+      if (finalStatus === 'SENT') result.booking_confirmation_sent += 1;
+      else if (finalStatus === 'FAILED') result.booking_confirmation_failed += 1;
+      else result.booking_confirmation_pending += 1;
     }
 
     return send(res, 200, result);

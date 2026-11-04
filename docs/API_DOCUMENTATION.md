@@ -10,7 +10,7 @@ Sau câu trả lời AI, nút **Yêu cầu tư vấn hành trình này** chuyể
 
 `POST /api/leads` nhận các trường biểu mẫu lead, header `Idempotency-Key` (UUID), và các tham số marketing `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` khi có. Các trường `email`, `phone`, `zalo_phone`, `source`, `voucher_code`, `voucher_status`, `voucher_channel` được lưu nếu có. `consent_to_contact` bắt buộc là `true`; tour được xác thực lại trên server.
 
-Nút **Đặt tour** từ tour đang hoạt động mở form yêu cầu đặt với email, ngày đi, số khách và tour bắt buộc. Gửi thành công lưu một lead có `lead_source = "booking_form"` và `lead_status = "NEW"`; API lấy tên tour, điểm đến, thời lượng và giá tham khảo từ catalog, không tin các giá trị này từ trình duyệt. Yêu cầu không giữ chỗ và không được đánh dấu `BOOKED`: ngày khởi hành, giá cuối cùng và tình trạng chỗ vẫn cần Sales xác nhận. N8n phải gửi email xác nhận đã nhận yêu cầu cho khách và email booking cho Sales; xem payload/ack chi tiết tại [n8n-workflow.md](./n8n-workflow.md). Dashboard website không hiển thị thông tin booking cá nhân. Không cần thêm bảng hoặc cột Supabase cho luồng này.
+Nút **Đặt tour** từ tour đang hoạt động mở form yêu cầu đặt với email, ngày đi, số khách và tour bắt buộc. Gửi thành công lưu một lead có `lead_source = "booking_form"` và `lead_status = "NEW"`; API lấy tên tour, điểm đến, thời lượng và giá tham khảo từ catalog, không tin các giá trị này từ trình duyệt. Yêu cầu chưa giữ chỗ: Sales nhận thông báo ngay, còn email xác nhận đặt tour cho khách chỉ gửi khi Sales chuyển trạng thái sang `BOOKED`. Chạy `docs/supabase-schema.sql` để thêm trạng thái và số lần retry email booking. Xem luồng webhook tại [n8n-workflow.md](./n8n-workflow.md). Dashboard website không hiển thị thông tin booking cá nhân.
 
 Frontend gửi `engagement.tour_views` và `engagement.return_visit` khi khách đồng ý theo dõi hành vi tùy chọn; server tự tính điểm lead (gửi form 35 điểm, chọn tour 20, mỗi lượt xem tối đa 3 lượt × 5, quay lại 10; HOT từ 70, WARM từ 45, còn lại COLD). Giá trị `lead_score` hoặc `lead_level` do client tự gửi không được tin cậy. Phân loại nhu cầu theo sở thích, tour đã chọn và ngân sách thành các nhóm `family`, `budget`, `resort`, `explorer` (có thể có nhiều traits) hoặc `general`. Đây là heuristic minh bạch, không phải kết quả mô hình AI hay thay thế xác nhận của Sales.
 
@@ -62,7 +62,7 @@ Không gửi PII vào `/api/aichat`. API không bịa giá hoặc tình trạng 
 1. Workflow tư vấn dùng Webhook `POST /webhook/travel-lead`; workflow booking dùng Webhook riêng `POST /webhook/vietjourney-booking`. Backend chọn workflow theo loại form sau khi lưu lead.
 2. Cả hai workflow kiểm tra `X-Automation-Secret` và chuẩn hóa `$json.body ?? $json` trước khi đọc payload.
 3. Workflow tư vấn dùng `lead_score`, `lead_level`, `customer_segment` đã tính ở server (không tính lại hoặc tin vào điểm từ browser); workflow booking gửi email riêng cho khách và Sales với `booking_price_per_person` từ catalog.
-4. Workflow tư vấn trả `{ "notification_sent": true, "lead_id": "..." }` chỉ sau khi Sales được thông báo (`email_sent` vẫn tương thích workflow cũ). Workflow booking trả `customer_email_sent` và `sales_email_sent` riêng; backend chỉ xác nhận thành công khi cả hai đều `true`. Lấy `lead_id` từ payload chuẩn hóa, không dựa vào output node cuối.
+4. Workflow booking gửi email Sales ngay khi khách gửi yêu cầu. Khi Sales chuyển booking sang `BOOKED` qua `/api/lead-status`, backend gọi webhook lại với `booking_event: "sales_confirmed"` để gửi email khách. Hai nhánh xác nhận riêng bằng `sales_email_sent` và `customer_email_sent`.
 
 Ví dụ JSON để n8n nhận:
 
@@ -98,6 +98,6 @@ Dashboard tại [dashboard.html](../dashboard.html) gọi `GET /api/kpi` để h
 
 `GET /api/kpi` trả số liệu tổng hợp ẩn danh của 180 ngày gần nhất: tổng lead, theo trạng thái, theo mức ưu tiên, theo nguồn UTM, theo tháng. Không trả thông tin liên hệ. Dashboard dùng endpoint này để hiện khối "Dữ liệu thật" khi có kết nối Supabase.
 
-Biến môi trường mới: `N8N_BOOKING_WEBHOOK_URL` (URL production của workflow đặt tour), `SALES_UPDATE_SECRET` (cập nhật trạng thái), `CRON_SECRET` (job retry). Cấu hình riêng hai URL n8n và dùng chung secret server-side. Chạy lại `docs/supabase-schema.sql` để thêm `sales_note`, `notification_attempts`, `last_notification_at` và ràng buộc trạng thái.
+Biến môi trường mới: `N8N_BOOKING_WEBHOOK_URL` (URL production của workflow đặt tour), `SALES_UPDATE_SECRET` (cập nhật trạng thái), `CRON_SECRET` (job retry). Cấu hình riêng hai URL n8n và dùng chung secret server-side. Chạy lại `docs/supabase-schema.sql` để thêm `sales_note`, `notification_attempts`, `last_notification_at`, trạng thái retry email xác nhận booking và các ràng buộc liên quan.
 
 Lưu ý về lịch Cron: gói Hobby của Vercel chỉ cho chạy cron tối đa một lần mỗi ngày, nên `vercel.json` đặt `0 3 * * *`. Nếu nâng lên gói Pro, có thể đổi thành `*/15 * * * *`.

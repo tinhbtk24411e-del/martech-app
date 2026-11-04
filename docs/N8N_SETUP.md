@@ -17,13 +17,13 @@ Hai workflow riêng bạn cung cấp là `1_lead_capture.json` (tư vấn) và `
 
    Các node sau dùng output của node này làm dữ liệu. Khi phản hồi, lấy ID từ node chuẩn hóa (ví dụ `{{$node["Normalize Lead"].json.lead_id}}`), không giả định `$json.lead_id` còn tồn tại sau các node email.
 5. Chỉ workflow tư vấn phân tuyến theo `lead_level`: `HOT` báo Sales ngay, `WARM` vào hàng đợi follow-up, `COLD` đi luồng nurture phù hợp consent. Không tính lại điểm bằng dữ liệu từ trình duyệt.
-6. Chỉ workflow booking gửi email xác nhận đã nhận yêu cầu cho khách và email booking cho Sales. `booking_price_per_person` là giá tham khảo từ catalog; email khách phải nói rõ Sales còn cần xác nhận ngày khởi hành và chỗ, chưa phải xác nhận giữ chỗ.
+6. Workflow booking gửi thông báo cho Sales ngay khi có yêu cầu. Chỉ khi Sales chuyển lead sang `BOOKED`, backend mới gọi lại webhook booking kèm `booking_event: "sales_confirmed"`; nhánh này mới gửi email xác nhận tới khách. Email dùng `booking_price_per_person` làm giá tham khảo, không khẳng định giữ chỗ ngoài những gì Sales đã xác nhận.
 
 ## Chống gửi email trùng và phản hồi
 
 - Lưu trạng thái riêng cho từng khóa `lead_id:customer` và `lead_id:sales` trong một kho bền vững. Đánh dấu `PROCESSING` trước khi gửi, chỉ chuyển thành `SENT` sau khi node email thành công; lần retry bỏ qua kênh `SENT` hoặc `PROCESSING`. Lead bị kẹt ở `PROCESSING` cần được đối soát thủ công trước khi gửi lại.
 - Đảm bảo hai execution cùng một lead không chạy song song. Nếu cần bảo đảm chống trùng kể cả khi n8n dừng giữa lúc gửi và ghi trạng thái, dùng email service có hỗ trợ idempotency key hoặc một dịch vụ gửi/claim nguyên tử; các node Gmail thông thường không thể bảo đảm exactly-once trong cửa sổ lỗi đó.
-- Workflow tư vấn chỉ trả `notification_sent: true` sau khi thông báo Sales thành công (`email_sent` chỉ để tương thích workflow cũ). Workflow booking chỉ trả `customer_email_sent: true` / `sales_email_sent: true` khi từng email tương ứng đã thành công. Backend chỉ đánh dấu booking `SENT` khi cả hai cờ là `true`.
+- Workflow tư vấn trả `notification_sent: true` sau khi thông báo Sales thành công. Nhánh booking thông thường chỉ trả `sales_email_sent: true`; nhánh có `booking_event: "sales_confirmed"` chỉ trả `customer_email_sent: true`. Mỗi cờ chỉ được trả sau khi node email tương ứng thành công.
 - Respond to Webhook phải phản hồi trong timeout 15 giây của backend. Nếu chưa thể xác nhận, không trả cờ `true`; lead sẽ ở `PENDING` để retry.
 
 ## Lịch retry và SLA
@@ -31,3 +31,5 @@ Hai workflow riêng bạn cung cấp là `1_lead_capture.json` (tư vấn) và `
 Repository đã có Vercel Cron gọi `GET /api/retry-notifications` mỗi ngày để retry thông báo `PENDING`/`FAILED`; đây không phải workflow nhắc Sales theo SLA. Nếu cần nhắc lead chưa xử lý, tạo một **Schedule Trigger workflow riêng** lọc lead `NEW` quá ngưỡng SLA, gửi nhắc Sales và lưu dấu lần nhắc/trạng thái xử lý để tránh nhắc lặp. Chốt ngưỡng SLA và kênh thông báo trước khi bật workflow này.
 
 Chi tiết payload, mapping và kiểm thử: [n8n-workflow.md](./n8n-workflow.md). Dùng n8n credentials cho Google Sheets và email; không đặt credential trong Code node hoặc payload.
+
+Chạy lại `docs/supabase-schema.sql` để thêm các cột trạng thái retry email xác nhận booking. Cần cấu hình `SALES_UPDATE_SECRET` và `CRON_SECRET` ở môi trường server. Sau đó import/cập nhật và bật lại workflow booking trong n8n. Sales xác nhận booking bằng `POST /api/lead-status` với header `X-Sales-Secret` khớp `SALES_UPDATE_SECRET` và body `{ "lead_id": "...", "lead_status": "BOOKED" }`; theo state machine, cập nhật lần lượt `NEW` → `CONTACTED` → `QUOTED` → `BOOKED`. Backend chỉ gửi email khách ở lần chuyển đầu tiên sang `BOOKED`; nếu gửi lỗi, `booking_confirmation_status` được retry bởi cron.

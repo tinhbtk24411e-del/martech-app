@@ -46,7 +46,7 @@ Thêm Google Sheets node dạng Append Row và ánh xạ tối thiểu:
 
 - Dùng IF node để phân tuyến: `HOT` thông báo ngay cho Sales; `WARM` vào hàng đợi follow-up; `COLD` gửi nội dung chăm sóc phù hợp.
 - Gửi lead đến email/Slack/Telegram nội bộ. Chỉ gửi voucher marketing cho khách qua email khi có email và consent/chính sách phù hợp; form hiện đồng ý cho mục đích liên hệ tư vấn.
-- Chỉ áp dụng hai email booking ở workflow Booking Confirmation: gửi email xác nhận đã nhận yêu cầu tới `email` của khách và gửi toàn bộ thông tin booking tới email Sales. Email khách phải nói rõ ngày đi/tình trạng chỗ còn chờ Sales xác nhận; đây chưa phải xác nhận giữ chỗ. `booking_price_per_person` là giá tham khảo từ catalog, không phải báo giá đã chốt.
+- Workflow Booking Confirmation gửi email nội bộ cho Sales khi nhận yêu cầu mới. Chỉ sau khi Sales chuyển lead sang `BOOKED`, backend gọi lại webhook với `booking_event: "sales_confirmed"` để gửi email xác nhận booking cho khách. `booking_price_per_person` là giá tham khảo từ catalog; nội dung email khách không được khẳng định các điều kiện Sales chưa xác nhận.
 - Vì webhook có thể được retry, dùng khóa `lead_id:customer` và `lead_id:sales` trong kho bền vững; lưu trạng thái từng kênh trước/sau khi gửi để retry không gửi lại kênh đã thành công. Xem [N8N_SETUP.md](./N8N_SETUP.md) về xử lý trạng thái `PROCESSING`, chạy tuần tự và giới hạn exactly-once.
 - Repository có Vercel Cron retry thông báo `PENDING`/`FAILED`, không có workflow nhắc Sales theo SLA. Nếu cần, tạo Schedule workflow riêng để kiểm tra lead chưa xử lý; chốt ngưỡng SLA và lưu trạng thái/lần nhắc để tránh gửi nhắc lặp.
 - Dùng credential n8n cho Gmail, Google Sheets và kênh thông báo; không đặt credential trong Code node hoặc payload.
@@ -59,7 +59,7 @@ Payload booking có các trường trọng tâm sau (ngoài thông tin lead/UTM 
   "booking_request": true,
   "booking_status": "AWAITING_SALES_CONFIRMATION",
   "booking_price_per_person": 7600000,
-  "customer_email_confirmation_required": true,
+  "customer_email_confirmation_required": false,
   "sales_email_notification_required": true,
   "name": "Nguyễn Văn A",
   "email": "customer@example.com",
@@ -73,6 +73,8 @@ Payload booking có các trường trọng tâm sau (ngoài thông tin lead/UTM 
   "lead_source": "booking_form"
 }
 ```
+
+Sau khi Sales chuyển lead sang `BOOKED`, backend gọi lại webhook booking với `booking_event: "sales_confirmed"`, `booking_status: "CONFIRMED"`, `customer_email_confirmation_required: true`, và `sales_email_notification_required: false`. Chỉ nhánh này mới gửi email cho khách.
 
 ## 5. Phản hồi webhook
 
@@ -89,23 +91,22 @@ Sau khi bước thông báo đã được xác nhận, Respond to Webhook trả 
 
 Với lead thường, `notification_sent` phản ánh xác nhận thông báo (ví dụ Sales đã nhận); `email_sent` vẫn được hỗ trợ cho workflow cũ.
 
-Workflow booking `vietjourney-booking` phải trả về cả hai cờ sau và chỉ đặt `true` sau khi từng email tương ứng đã được gửi:
+Khi nhận yêu cầu booking ban đầu, workflow `vietjourney-booking` trả `sales_email_sent: true` sau khi email Sales được gửi. Khi payload có `booking_event: "sales_confirmed"`, trả `customer_email_sent: true` sau khi email khách được gửi:
 
 ```json
 {
   "customer_email_sent": true,
-  "sales_email_sent": true,
   "lead_id": "{{$json.lead_id}}",
   "status": "ok"
 }
 ```
 
-Backend chỉ ghi `notification_status = SENT` cho booking khi cả hai cờ đều `true`; cờ `false` tạo trạng thái `FAILED`, thiếu xác nhận giữ `PENDING` để retry. Không dùng `notification_sent` thay cho hai cờ booking này.
+Backend theo dõi thông báo Sales qua `notification_status` và email khách qua `booking_confirmation_status` riêng. Cờ `false` tạo trạng thái `FAILED`, thiếu xác nhận giữ `PENDING` để retry.
 
 ## 6. Kiểm thử trước khi bật
 
 1. Gửi lead thử qua form tư vấn và form đặt tour với dữ liệu liên hệ đã được đồng ý sử dụng.
 2. Kiểm tra bản ghi Supabase trước: score/segment, UTM, `selected_tour_id`, `note`, `notification_status`.
-3. Với booking, kiểm tra email khách và email Sales, sau đó xác nhận webhook trả đủ `customer_email_sent: true` và `sales_email_sent: true`.
+3. Với booking, xác nhận email Sales chỉ gửi khi nhận yêu cầu; email khách chỉ gửi sau khi Sales chuyển trạng thái sang `BOOKED`.
 4. Thử email không có và lỗi node; lead phải vẫn được lưu, không báo gửi thành công giả.
 5. Theo dõi các lead `PENDING` và cấu hình quy trình retry có chống gửi trùng.

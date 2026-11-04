@@ -305,13 +305,13 @@ function setBookingMode(enabled) {
     ? 'Gửi thông tin<br>đặt tour của bạn.'
     : 'Kể tụi mình nghe<br>bạn đang mong chuyến đi thế nào.';
   $('#contactDescription').textContent = enabled
-    ? 'Tụi mình sẽ gửi email xác nhận đã nhận yêu cầu và liên hệ để xác nhận lịch, chỗ trước khi booking có hiệu lực.'
+    ? 'Sales sẽ xác nhận ngày đi và tình trạng chỗ. Email xác nhận đặt tour sẽ được gửi sau khi Sales chốt booking.'
     : 'Để lại vài thông tin cơ bản thôi. Đội ngũ VietJourney sẽ cùng bạn tìm phương án phù hợp.';
   $('#contactReassurance').innerHTML = enabled
-    ? '<strong>Giá và chỗ còn cần xác nhận.</strong><br>Email xác nhận chỉ xác nhận đã nhận yêu cầu đặt tour.'
+    ? '<strong>Yêu cầu chưa giữ chỗ.</strong><br>Email xác nhận đặt tour chỉ gửi sau khi Sales xác nhận.'
     : '<strong>Không cần chốt tour ngay.</strong><br>Cứ hỏi trước, bạn quyết định sau nhé.';
   $('#contactHint').textContent = enabled
-    ? 'Email bắt buộc để gửi xác nhận; số điện thoại giúp Sales liên hệ.'
+    ? 'Email bắt buộc để nhận xác nhận sau khi Sales chốt booking; số điện thoại giúp Sales liên hệ.'
     : 'Bạn chỉ cần cung cấp email hoặc số điện thoại.';
   $('#contactConsentText').textContent = enabled
     ? 'Tôi đồng ý để VietJourney xử lý yêu cầu đặt tour và liên hệ xác nhận.'
@@ -752,8 +752,10 @@ $('#leadForm').addEventListener('submit', async (event) => {
 
     if (bookingMode) {
       const emailMessage = data.notification_status === 'SENT'
-        ? ` Email xác nhận đã gửi đến ${email}; Sales cũng đã nhận thông tin.`
-        : ' Yêu cầu đã lưu nhưng email chưa được xác nhận gửi; hệ thống sẽ thử thông báo lại.';
+        ? ' Sales đã nhận yêu cầu; email xác nhận cho bạn sẽ được gửi sau khi Sales chốt booking.'
+        : data.notification_status === 'FAILED'
+          ? ' Yêu cầu đã lưu nhưng chưa gửi được thông báo cho Sales; hệ thống sẽ thử lại.'
+          : ' Yêu cầu đã lưu; đang chờ xác nhận thông báo tới Sales.';
       setMessage(
         form,
         `Đã ghi nhận yêu cầu đặt tour. Ngày đi và tình trạng chỗ vẫn cần Sales xác nhận.${emailMessage} Mã yêu cầu: ${data.lead_id}`,

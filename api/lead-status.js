@@ -1,5 +1,10 @@
 import { LEAD_STATUSES, canTransition, clean, secretMatches, send } from './_shared.js';
 import { supabase } from './_supabase.js';
+import {
+  claimBookingConfirmation,
+  deliverBookingConfirmation,
+  updateBookingConfirmationStatus,
+} from './_notify.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -27,7 +32,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const currentResponse = await supabase(`leads?lead_id=eq.${leadId}&select=lead_status`);
+    const currentResponse = await supabase(`leads?lead_id=eq.${leadId}&select=*`);
     if (!currentResponse.ok) return send(res, 503, { error: 'Chưa thể đọc lead. Vui lòng thử lại.' });
 
     const [current] = await currentResponse.json();
@@ -42,6 +47,9 @@ export default async function handler(req, res) {
 
     const body = { lead_status: nextStatus };
     if (salesNote) body.sales_note = salesNote;
+    const isBookingConfirmation = current.lead_status !== 'BOOKED' &&
+      current.lead_source === 'booking_form' && nextStatus === 'BOOKED';
+    if (isBookingConfirmation) body.booking_confirmation_status = 'PENDING';
 
     // Compare-and-set: only applies if nobody changed the status since we read it.
     const updateResponse = await supabase(
@@ -59,7 +67,43 @@ export default async function handler(req, res) {
       return send(res, 409, { error: 'Lead vừa được cập nhật bởi người khác. Vui lòng tải lại.' });
     }
 
-    return send(res, 200, { lead_id: leadId, lead_status: nextStatus });
+    if (!isBookingConfirmation) {
+      return send(res, 200, { lead_id: leadId, lead_status: nextStatus });
+    }
+
+    const updatedLead = Array.isArray(updated) ? updated[0] : null;
+    const claimed = await claimBookingConfirmation({
+      ...current,
+      ...updatedLead,
+      lead_id: leadId,
+      lead_status: nextStatus,
+      booking_confirmation_status: 'PENDING',
+    });
+    if (claimed === null) {
+      return send(res, 503, {
+        error: 'Đã cập nhật booking nhưng chưa thể gửi email xác nhận. Hệ thống sẽ thử lại.',
+        lead_id: leadId,
+        lead_status: nextStatus,
+        booking_confirmation_status: 'PENDING',
+      });
+    }
+    if (claimed === false) {
+      return send(res, 200, {
+        lead_id: leadId,
+        lead_status: nextStatus,
+        booking_confirmation_status: 'PENDING',
+      });
+    }
+
+    const confirmationStatus = await deliverBookingConfirmation({ ...current, ...claimed });
+    const recorded = await updateBookingConfirmationStatus(leadId, confirmationStatus);
+    const finalStatus = recorded ? confirmationStatus : 'PENDING';
+
+    return send(res, 200, {
+      lead_id: leadId,
+      lead_status: nextStatus,
+      booking_confirmation_status: finalStatus,
+    });
   } catch (error) {
     console.error('[api/lead-status] Request failed', { errorCode: error?.code || error?.name || 'UNKNOWN' });
     return send(res, 503, { error: 'Chưa thể cập nhật trạng thái. Vui lòng thử lại.' });

@@ -30,6 +30,9 @@ create table if not exists public.leads (
   consent_to_contact boolean not null,
   lead_status text not null default 'NEW',
   notification_status text not null default 'PENDING',
+  booking_confirmation_status text not null default 'NOT_READY',
+  booking_confirmation_attempts integer not null default 0,
+  last_booking_confirmation_at timestamptz,
   note text,
   utm_source text default 'direct',
   utm_medium text,
@@ -67,6 +70,9 @@ alter table public.leads
   add column if not exists voucher_channel text default 'email',
   add column if not exists lead_status text not null default 'NEW',
   add column if not exists notification_status text not null default 'PENDING',
+  add column if not exists booking_confirmation_status text not null default 'NOT_READY',
+  add column if not exists booking_confirmation_attempts integer not null default 0,
+  add column if not exists last_booking_confirmation_at timestamptz,
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now(),
   add column if not exists utm_source text default 'direct',
@@ -150,3 +156,18 @@ create index if not exists leads_contact_destination_created_idx
 
 create index if not exists leads_notification_retry_idx
   on public.leads (notification_status, notification_attempts, created_at);
+
+create index if not exists leads_booking_confirmation_retry_idx
+  on public.leads (booking_confirmation_status, booking_confirmation_attempts, created_at)
+  where lead_status = 'BOOKED' and lead_source = 'booking_form';
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'leads_booking_confirmation_status_check'
+  ) then
+    alter table public.leads
+      add constraint leads_booking_confirmation_status_check
+      check (booking_confirmation_status in ('NOT_READY', 'PENDING', 'FAILED', 'SENT'));
+  end if;
+end $$;
