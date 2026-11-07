@@ -106,7 +106,7 @@
         <div>
           <p class="eyebrow light">TỤI MÌNH LUÔN SẴN SÀNG</p>
           <h2 id="contactTitle">Kể tụi mình nghe<br>bạn đang mong chuyến đi thế nào.</h2>
-          <p id="contactDescription">Để lại vài thông tin cơ bản thôi. Đội ngũ VietJourney sẽ cùng bạn tìm phương án phù hợp.</p>
+          <p id="contactDescription">Chỉ cần tên và số điện thoại. Các thông tin chuyến đi có thể bổ sung sau.</p>
           <div class="contact-reassurance"><span>♡</span><p id="contactReassurance"><strong>Không cần chốt tour ngay.</strong><br>Cứ hỏi trước, bạn quyết định sau nhé.</p></div>
         </div>
         <form id="leadForm" class="lead-form" method="post" action="/api/leads">
@@ -115,22 +115,27 @@
           <input name="selected_tour_name" type="hidden">
           <div class="form-grid">
             <label>Gọi bạn là gì nhỉ?<input name="name" required maxlength="120" placeholder="Tên của bạn"></label>
-            <label id="emailField">Email<input name="email" type="email" maxlength="160" placeholder="email@example.com"></label>
-            <label>Số điện thoại<input name="phone" maxlength="40" placeholder="Số điện thoại để tụi mình liên hệ"></label>
-            <p id="contactHint" class="contact-hint">Bạn chỉ cần cung cấp email hoặc số điện thoại.</p>
-            <label>Zalo / WhatsApp (tùy chọn)<input name="zalo_phone" maxlength="40" placeholder="Nếu có"></label>
-            <label id="destinationField">Điểm đến<input name="destination" required maxlength="100"></label>
-            <label id="durationField">Thời lượng (ngày)<input name="duration" type="number" min="1" max="60" required></label>
-            <label id="budgetField">Ngân sách dự kiến/người (đồng)<input name="budget" type="number" min="0" required><small id="budgetPreview" class="field-hint">Ví dụ: 2,000,000 đồng/người.</small></label>
-            <label>Số người<input name="party_size" type="number" min="1" max="30" required></label>
-            <label id="travelDateField">Ngày dự kiến<input name="travel_date" type="date"></label>
-            <label id="selectedTourField">Tour quan tâm<input id="tourName" readonly placeholder="Chưa chọn tour"></label>
+            <label>Số điện thoại<input name="phone" type="tel" required maxlength="40" autocomplete="tel" placeholder="Số điện thoại để tụi mình liên hệ"></label>
+            <p id="contactHint" class="contact-hint">Đội ngũ chỉ dùng thông tin này để phản hồi yêu cầu tư vấn.</p>
           </div>
-          <fieldset id="interestsField"><legend>Sở thích</legend><div id="leadInterests" class="chips"></div></fieldset>
-          <label id="noteField">Lời nhắn cho tụi mình<textarea name="note" maxlength="1000" rows="3" placeholder="Ví dụ: Mình đi cùng gia đình và thích gần biển..."></textarea></label>
+          <details id="tripDetails" class="lead-extra">
+            <summary>Thêm thông tin chuyến đi (không bắt buộc)</summary>
+            <div class="form-grid">
+              <label id="emailField">Email (tùy chọn)<input name="email" type="email" maxlength="160" autocomplete="email" placeholder="email@example.com"></label>
+              <label>Zalo / WhatsApp (tùy chọn)<input name="zalo_phone" maxlength="40" placeholder="Nếu có"></label>
+              <label id="destinationField">Điểm đến<input name="destination" maxlength="100" placeholder="Bạn muốn đi đâu?"></label>
+              <label id="durationField">Thời lượng (ngày)<input name="duration" type="number" min="1" max="60"></label>
+              <label id="budgetField">Ngân sách dự kiến/người (đồng)<input name="budget" type="number" min="0"><small id="budgetPreview" class="field-hint">Ví dụ: 2,000,000 đồng/người.</small></label>
+              <label id="partySizeField">Số người<input name="party_size" type="number" min="1" max="30" placeholder="Số khách"></label>
+              <label id="travelDateField">Ngày dự kiến<input name="travel_date" type="date"></label>
+              <label id="selectedTourField">Tour quan tâm<input id="tourName" readonly placeholder="Chưa chọn tour"></label>
+            </div>
+            <fieldset id="interestsField"><legend>Sở thích (tùy chọn)</legend><div id="leadInterests" class="chips"></div></fieldset>
+            <label id="noteField">Lời nhắn<textarea name="note" maxlength="1000" rows="3" placeholder="Thông tin thêm nếu có..."></textarea></label>
+          </details>
           <label class="consent"><input name="consent_to_contact" type="checkbox" value="true" required> <span id="contactConsentText">Tôi đồng ý để VietJourney liên hệ tư vấn về yêu cầu này.</span></label>
           <label id="trackingConsent" class="consent"><input name="behavior_tracking" type="checkbox" value="true"> Cho phép lưu tín hiệu xem chi tiết tour và quay lại trên trình duyệt để cá nhân hóa tư vấn (tùy chọn).</label>
-          <p class="field-hint">Website ghi nhận phiên truy cập ẩn danh và UTM để đo hiệu quả chiến dịch; không lưu IP hoặc nội dung chat. Tín hiệu xem tour và quay lại chỉ lưu khi bạn chọn ô trên.</p>
+          <p class="field-hint">Website dùng mã ẩn danh lưu trên trình duyệt, hết hạn sau 7 ngày không truy cập, để ghi nhận lượt truy cập, nguồn UTM và việc sử dụng AI; không lưu IP hoặc nội dung chat. Tín hiệu xem tour, tương tác và quay lại chỉ ghi nhận khi bạn chọn ô trên.</p>
           <button id="leadSubmit" class="button coral" type="submit">Gửi yêu cầu tư vấn</button>
           <button id="switchToInquiry" class="button ghost" type="button" hidden>Chỉ muốn hỏi tư vấn</button>
           <p class="form-message" aria-live="polite"></p>
@@ -157,7 +162,7 @@
         <a href="dashboard.html">Dashboard demo</a>
         <a href="docs/README.md">Chính sách bảo mật</a>
       </div>
-      <small>Website đo lượt truy cập bằng mã phiên ẩn danh trong tab hiện tại; không lưu IP hoặc nội dung chat. © 2026 VietJourney.</small>
+      <small>Website đo lượt truy cập bằng mã ẩn danh trên trình duyệt (hết hạn sau 7 ngày không truy cập); không lưu IP hoặc nội dung chat. © 2026 VietJourney.</small>
     </footer>
     <dialog id="tourDialog" class="tour-dialog" aria-labelledby="dialogTitle">
       <form method="dialog"><button class="dialog-close" aria-label="Đóng chi tiết tour">×</button></form>

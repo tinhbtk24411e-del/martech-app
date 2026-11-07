@@ -1,4 +1,5 @@
 import { recordVisitorEvent } from './visitor-tracking.js';
+import { showPromotion } from './promo-offers.js';
 recordVisitorEvent('visit');
 
 const $ = (selector) => document.querySelector(selector);
@@ -390,6 +391,15 @@ function addConsultLink() {
   $('#chatMessages').append(link);
 }
 
+function continueWithPromotion(voucherCode) {
+  try {
+    sessionStorage.setItem('vietjourney_voucher_code', voucherCode);
+  } catch (error) {
+    console.error('[planner] Could not save promotion code', error);
+  }
+  window.location.href = `index.html#contact`;
+}
+
 function plannerTripContext() {
   return {
     start_date: plannerState.startDate,
@@ -449,7 +459,8 @@ async function sendChatMessage(query) {
     chatConversation = chatConversation.slice(-10);
     appendChatMessage(reply);
     addConsultLink();
-    recordVisitorEvent('ai_used');
+    const visitor = await recordVisitorEvent('ai_used');
+    showPromotion(visitor?.temperature || 'WARM', continueWithPromotion);
   } catch (error) {
     const message = error instanceof TypeError
       ? 'Không kết nối được với AI. Bạn thử lại sau nhé.'

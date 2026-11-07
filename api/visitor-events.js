@@ -2,7 +2,16 @@ import { clean, method, send } from './_shared.js';
 import { supabase, supabaseErrorCode } from './_supabase.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const EVENTS = ['visit', 'ai_used'];
+const EVENTS = [
+  'visit',
+  'ai_used',
+  'tour_detail_view',
+  'pricing_view',
+  'engaged_2m',
+  'return_visit',
+  'compare_or_save',
+  'contact_click',
+];
 const SOURCES = new Set(['facebook', 'tiktok', 'instagram', 'google', 'direct']);
 
 export default async function handler(req, res) {
@@ -26,6 +35,8 @@ export default async function handler(req, res) {
     p_utm_campaign: clean(body.utm_campaign, 128) || null,
     p_utm_content: clean(body.utm_content, 128) || null,
     p_utm_term: clean(body.utm_term, 128) || null,
+    p_lead_id: null,
+    p_form_data: {},
   };
 
   try {
@@ -42,7 +53,14 @@ export default async function handler(req, res) {
       return send(res, 503, { error: 'Chưa thể ghi nhận lượt truy cập.' });
     }
 
-    return send(res, 202, { recorded: true });
+    const result = await response.json().catch(() => ({}));
+    return send(res, 202, {
+      recorded: true,
+      score: Number(result?.score) || 0,
+      temperature: ['COLD', 'WARM', 'HOT'].includes(result?.temperature)
+        ? result.temperature
+        : 'COLD',
+    });
   } catch (error) {
     console.error('[api/visitor-events] Request failed', {
       errorCode: error?.code || error?.name || 'UNKNOWN',

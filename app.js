@@ -1,4 +1,5 @@
-import { getVisitorId, getVisitorUtm, recordVisitorEvent } from './visitor-tracking.js';
+import { getVisitorId, getVisitorUtm, recordVisitorEvent, setBehaviorTrackingConsent } from './visitor-tracking.js';
+import { showPromotion } from './promo-offers.js';
 recordVisitorEvent('visit');
 
 const interests = ['Tiết kiệm', 'Khám phá', 'Nghỉ dưỡng', 'Ẩm thực', 'Chụp ảnh', 'Thiên nhiên', 'Trekking', 'Gia đình', 'Văn hóa'];
@@ -9,14 +10,18 @@ let showSavedTours = false;
 let chatConversation = [];
 let chatRequestPending = false;
 let behaviorTrackingConsent = false;
-let returnVisit = false;
 let tourViewCount = 0;
 let bookingMode = false;
+let activeVoucherCode = '';
+try {
+  activeVoucherCode = sessionStorage.getItem('vietjourney_voucher_code') || '';
+} catch (error) {
+  console.error('[app] Could not restore promotion code', error);
+}
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const SAVED_TOURS_KEY = 'vietjourney_saved_tours';
 const TRACKING_CONSENT_KEY = 'vietjourney_behavior_consent';
-const VISITOR_SEEN_KEY = 'vietjourney_seen';
 const FALLBACK_TOUR_IMAGE = 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=900&q=80';
 
 try {
@@ -28,11 +33,8 @@ try {
 
 try {
   behaviorTrackingConsent = localStorage.getItem(TRACKING_CONSENT_KEY) === 'true';
-  returnVisit = behaviorTrackingConsent && localStorage.getItem(VISITOR_SEEN_KEY) === 'true';
-  if (behaviorTrackingConsent) localStorage.setItem(VISITOR_SEEN_KEY, 'true');
 } catch {
   behaviorTrackingConsent = false;
-  returnVisit = false;
 }
 
 const money = (value) =>
@@ -298,12 +300,15 @@ function toggleSavedTour(tour) {
   } catch {
     // Saving remains available for this page view when browser storage is disabled.
   }
+  if (savedTours.includes(id)) recordVisitorEvent('compare_or_save');
   renderTours();
 }
 
 function setBookingMode(enabled) {
   bookingMode = enabled;
   const form = $('#leadForm');
+  const tripDetails = $('#tripDetails');
+  tripDetails.open = enabled;
   $('#contactTitle').innerHTML = enabled
     ? 'Gửi thông tin<br>đặt tour của bạn.'
     : 'Kể tụi mình nghe<br>bạn đang mong chuyến đi thế nào.';
@@ -315,15 +320,30 @@ function setBookingMode(enabled) {
     : '<strong>Không cần chốt tour ngay.</strong><br>Cứ hỏi trước, bạn quyết định sau nhé.';
   $('#contactHint').textContent = enabled
     ? 'Email bắt buộc để nhận xác nhận sau khi Sales chốt booking; số điện thoại giúp Sales liên hệ.'
-    : 'Bạn chỉ cần cung cấp email hoặc số điện thoại.';
+    : 'Chỉ cần tên và số điện thoại. Email và thông tin chuyến đi không bắt buộc.';
   $('#contactConsentText').textContent = enabled
     ? 'Tôi đồng ý để VietJourney xử lý yêu cầu đặt tour và liên hệ xác nhận.'
     : 'Tôi đồng ý để VietJourney liên hệ tư vấn về yêu cầu này.';
+  [
+    ['emailField', 'Email'],
+    ['destinationField', 'Điểm đến'],
+    ['durationField', 'Thời lượng (ngày)'],
+    ['budgetField', 'Ngân sách dự kiến/người (đồng)'],
+    ['partySizeField', 'Số người'],
+    ['travelDateField', 'Ngày dự kiến'],
+  ].forEach(([id, label]) => {
+    $(`#${id}`).firstChild.textContent = `${label} (${enabled ? 'bắt buộc' : 'tùy chọn'})`;
+  });
   $('#leadSubmit').textContent = enabled ? 'Gửi yêu cầu đặt tour' : 'Gửi yêu cầu tư vấn';
   $('#switchToInquiry').hidden = !enabled;
-  $('#emailField').querySelector('input').required = enabled;
+  form.elements.email.required = enabled;
+  form.elements.phone.required = !enabled;
   const travelDateInput = $('#travelDateField').querySelector('input');
   travelDateInput.required = enabled;
+  form.elements.destination.required = enabled;
+  form.elements.duration.required = enabled;
+  form.elements.budget.required = enabled;
+  form.elements.party_size.required = enabled;
   if (enabled) {
     const today = new Date();
     today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
@@ -331,10 +351,6 @@ function setBookingMode(enabled) {
   } else {
     travelDateInput.removeAttribute('min');
   }
-  $('#destinationField').hidden = enabled;
-  $('#durationField').hidden = enabled;
-  $('#budgetField').hidden = enabled;
-  $('#interestsField').hidden = enabled;
   $('#trackingConsent').hidden = enabled;
   if (!enabled) {
     form.elements.email.setCustomValidity('');
@@ -344,6 +360,7 @@ function setBookingMode(enabled) {
 
 function selectTour(tour, booking = false) {
   const form = $('#leadForm');
+  $('#tripDetails').open = true;
   form.elements.selected_tour_id.value = tour.id;
   form.elements.selected_tour_name.value = tour.name;
   $('#tourName').value = tour.name;
@@ -363,6 +380,8 @@ function selectTour(tour, booking = false) {
 
 function showDetails(tour) {
   if (behaviorTrackingConsent) tourViewCount = Math.min(tourViewCount + 1, 3);
+  recordVisitorEvent('tour_detail_view');
+  recordVisitorEvent('pricing_view');
   const dialog = $('#tourDialog');
   const dialogImage = $('#dialogImage');
   dialogImage.onerror = () => { dialogImage.onerror = null; dialogImage.src = FALLBACK_TOUR_IMAGE; };
@@ -456,20 +475,8 @@ const behaviorTrackingField = $('#leadForm').elements.behavior_tracking;
 behaviorTrackingField.checked = behaviorTrackingConsent;
 behaviorTrackingField.addEventListener('change', () => {
   behaviorTrackingConsent = behaviorTrackingField.checked;
-  returnVisit = false;
+  setBehaviorTrackingConsent(behaviorTrackingConsent);
   tourViewCount = 0;
-
-  try {
-    if (behaviorTrackingConsent) {
-      localStorage.setItem(TRACKING_CONSENT_KEY, 'true');
-      localStorage.setItem(VISITOR_SEEN_KEY, 'true');
-    } else {
-      localStorage.removeItem(TRACKING_CONSENT_KEY);
-      localStorage.removeItem(VISITOR_SEEN_KEY);
-    }
-  } catch {
-    behaviorTrackingConsent = behaviorTrackingField.checked;
-  }
 });
 
 const leadEmail = $('#leadForm').elements.email;
@@ -492,6 +499,25 @@ $('#destinationSearch').addEventListener('submit', (event) => {
   renderTours();
   $('#tours').scrollIntoView({ behavior: 'smooth' });
 });
+
+document.addEventListener('click', (event) => {
+  if (event.target.closest('a[href="#contact"]')) recordVisitorEvent('contact_click');
+});
+
+$('#budgetFilter').addEventListener('change', () => recordVisitorEvent('pricing_view'));
+function continueWithPromotion(voucherCode) {
+  activeVoucherCode = voucherCode;
+  try {
+    sessionStorage.setItem('vietjourney_voucher_code', voucherCode);
+  } catch (error) {
+    console.error('[app] Could not save promotion code', error);
+  }
+  setBookingMode(false);
+  $('#tripDetails').open = true;
+  location.hash = 'contact';
+  $('#contact').scrollIntoView({ behavior: 'smooth' });
+  $('#leadForm').elements.phone.focus({ preventScroll: true });
+}
 
 $('#tourSearch').addEventListener('input', () => {
   showSavedTours = false;
@@ -693,7 +719,8 @@ async function sendChatMessage(query) {
     chatConversation = chatConversation.slice(-10);
     appendChatMessage(data.reply.trim());
     addChatLeadAction(query, data.reply.trim());
-    recordVisitorEvent('ai_used');
+    const visitor = await recordVisitorEvent('ai_used');
+    showPromotion(visitor?.temperature || 'WARM', continueWithPromotion);
   } catch (error) {
     const message = error instanceof TypeError
       ? 'Không kết nối được với AI. Bạn thử lại sau nhé.'
@@ -734,10 +761,10 @@ $('#leadForm').addEventListener('submit', async (event) => {
   payload.source = payload.source || utm.utm_source || 'website';
   payload.engagement = {
     tour_views: behaviorTrackingConsent ? tourViewCount : 0,
-    return_visit: behaviorTrackingConsent && returnVisit,
   };
   payload.voucher_status = payload.voucher_status || 'PENDING';
   payload.voucher_channel = payload.voucher_channel || 'email';
+  payload.voucher_code = activeVoucherCode;
 
   const submitButton = $('#leadSubmit');
   submitButton.disabled = true;
@@ -778,6 +805,12 @@ $('#leadForm').addEventListener('submit', async (event) => {
       setMessage(form, `Yêu cầu đã được ghi nhận.${notificationMessage} Mã Lead ID: ${data.lead_id}`, messageStatus);
     }
     form.reset();
+    activeVoucherCode = '';
+    try {
+      sessionStorage.removeItem('vietjourney_voucher_code');
+    } catch (error) {
+      console.error('[app] Could not clear promotion code', error);
+    }
     behaviorTrackingField.checked = behaviorTrackingConsent;
     $('#tourName').value = '';
     setBookingMode(false);
@@ -808,5 +841,6 @@ $$('nav a').forEach((link) => {
 });
 
 chips('#leadInterests');
+setBookingMode(false);
 getCurrentUtm();
 loadTours();

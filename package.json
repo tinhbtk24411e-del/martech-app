@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vercel dev",
     "start": "vercel dev",
-    "test": "node --check app.js && node --check planner.js && node --check dashboard.js && node --check visitor-tracking.js && node --check kpi-model.js && node --check api/_shared.js && node --check api/_scoring.js && node --check api/_supabase.js && node --check api/_notify.js && node --check api/aichat.js && node --check api/leads.js && node --check api/visitor-events.js && node --check api/lead-status.js && node --check api/sales-bookings.js && node --check api/retry-notifications.js && node --check api/kpi.js && node --test"
+    "test": "node --check app.js && node --check planner.js && node --check dashboard.js && node --check visitor-tracking.js && node --check promo-offers.js && node --check kpi-model.js && node --check api/_shared.js && node --check api/_scoring.js && node --check api/_supabase.js && node --check api/_notify.js && node --check api/aichat.js && node --check api/leads.js && node --check api/visitor-events.js && node --check api/lead-status.js && node --check api/sales-bookings.js && node --check api/retry-notifications.js && node --check api/kpi.js && node --test"
   },
   "engines": {
     "node": ">=20"

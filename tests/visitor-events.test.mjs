@@ -29,7 +29,7 @@ test('records valid anonymous events and keeps the requested UTM campaign', asyn
   }, async (url, options) => {
     assert.equal(String(url), `${ENV.SUPABASE_URL}/rest/v1/rpc/record_website_visitor`);
     recorded = JSON.parse(options.body);
-    return json(null);
+    return json({ score: 40, temperature: 'WARM', signals: { ai_used: true } });
   });
 
   assert.equal(res.statusCode, 202);
@@ -38,6 +38,8 @@ test('records valid anonymous events and keeps the requested UTM campaign', asyn
   assert.equal(recorded.p_utm_source, 'tiktok');
   assert.equal(recorded.p_utm_medium, 'paid_social');
   assert.equal(recorded.p_utm_campaign, 'summer_sale');
+  assert.equal(res.body.temperature, 'WARM');
+  assert.equal(res.body.score, 40);
 });
 
 test('normalizes unknown sources and rejects invalid session ids or events', async () => {
@@ -57,4 +59,9 @@ test('normalizes unknown sources and rejects invalid session ids or events', asy
     throw new Error('must not reach Supabase');
   });
   assert.equal(invalid.statusCode, 400);
+
+  const protectedEvent = await run({ visitor_id: VISITOR_ID, event: 'consultation_submitted' }, async () => {
+    throw new Error('consultation completion must only be recorded by the lead API');
+  });
+  assert.equal(protectedEvent.statusCode, 400);
 });

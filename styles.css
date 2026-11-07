@@ -727,6 +727,23 @@ input[type="checkbox"] { accent-color: var(--ocean); width: 18px; height: 18px; 
   font-weight: 500;
 }
 .form-grid > .contact-hint { grid-column: 1 / -1; margin-top: -8px; }
+.lead-extra {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fffdf9;
+}
+.lead-extra summary {
+  padding: 13px 16px;
+  color: var(--ocean);
+  font-weight: 700;
+  cursor: pointer;
+}
+.lead-extra[open] { padding: 0 16px 16px; }
+.lead-extra[open] summary { margin: 0 -16px 16px; border-bottom: 1px solid var(--line); }
+.lead-extra .form-grid { margin-top: 0; }
+.lead-extra fieldset { margin-top: 16px; }
+.lead-extra > label:not(.consent) { margin-top: 16px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
   min-height: 38px;
@@ -760,6 +777,42 @@ input[type="checkbox"] { accent-color: var(--ocean); width: 18px; height: 18px; 
 .form-message.success { background: #e5f5ec; color: var(--success); }
 .form-message.warning { background: #fff3dc; color: var(--warning); }
 .form-message.error { background: #fdeceb; color: var(--danger); }
+
+.promo-dialog {
+  position: relative;
+  width: min(520px, calc(100% - 28px));
+  max-height: min(90vh, 760px);
+  padding: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 26px;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 100% 0, rgba(255, 144, 104, 0.26), transparent 42%),
+    linear-gradient(145deg, #fffdf9, #e4f5f3);
+  box-shadow: var(--shadow-lg);
+}
+.promo-dialog::backdrop { background: rgba(5, 23, 35, 0.68); backdrop-filter: blur(5px); }
+.promo-dialog[open] { animation: pop 0.25s ease; }
+.promo-dialog > form { margin: 0; }
+.promo-content { padding: 46px clamp(24px, 7vw, 42px) 34px; text-align: center; }
+.promo-content .eyebrow { margin-bottom: 10px; }
+.promo-badge {
+  display: inline-flex;
+  margin: 0 auto 12px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--coral);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.promo-content h2 { margin: 0 auto 12px; max-width: 16ch; font-size: clamp(1.7rem, 6vw, 2.4rem); line-height: 1.15; }
+.promo-content > p:not(.eyebrow):not(.promo-badge) { color: var(--ink-soft); }
+.promo-expiry { font-weight: 700; }
+.promo-content .button { width: 100%; margin: 10px 0 12px; min-height: 52px; }
+.promo-content small { display: block; color: var(--muted); line-height: 1.5; }
 
 /* ---------- FAQ ---------- */
 .about .faq-list {

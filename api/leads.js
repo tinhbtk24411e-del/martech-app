@@ -16,6 +16,11 @@ const OPTIONAL_LEAD_COLUMNS = [
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+function optionalNumber(value, min, max) {
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+  return number(value, min, max);
+}
+
 function normalizeUtm(data) {
   const cleaned = utmFields(data);
 
@@ -41,8 +46,8 @@ async function notifyAndRecord(lead) {
   return recorded ? status : 'PENDING';
 }
 
-async function recordConsultationVisitor(visitorId, leadId, utm) {
-  if (!visitorId) return;
+async function recordConsultationVisitor(visitorId, leadId, utm, formData = {}) {
+  if (!visitorId) return null;
 
   try {
     const response = await supabase('rpc/record_website_visitor', {
@@ -56,6 +61,7 @@ async function recordConsultationVisitor(visitorId, leadId, utm) {
         p_utm_content: utm.utm_content || null,
         p_utm_term: utm.utm_term || null,
         p_lead_id: leadId,
+        p_form_data: formData,
       }),
     });
     if (!response.ok) {
@@ -63,11 +69,14 @@ async function recordConsultationVisitor(visitorId, leadId, utm) {
         status: response.status,
         databaseCode: await supabaseErrorCode(response),
       });
+      return null;
     }
+    return await response.json();
   } catch (error) {
     console.error('[api/leads] Could not upgrade visitor priority', {
       errorCode: error?.code || error?.name || 'UNKNOWN',
     });
+    return null;
   }
 }
 
@@ -84,10 +93,12 @@ export default async function handler(req, res) {
   const explicitPhone = clean(b.phone || '', 40);
   const explicitZalo = clean(b.zalo_phone || '', 40);
   const contact = clean(b.contact || explicitPhone || explicitEmail || '', 160);
-  let destination = clean(b.destination, 100);
-  let duration = number(b.duration, 1, 60);
-  let budget = number(b.budget, 0, 1_000_000_000);
-  const partySize = number(b.party_size, 1, 30);
+  let destination = clean(b.destination, 100) || null;
+  let duration = optionalNumber(b.duration, 1, 60);
+  let budget = optionalNumber(b.budget, 0, 1_000_000_000);
+  const partySize = optionalNumber(b.party_size, 1, 30);
+  const invalidOptionalNumber = (value, parsed) =>
+    value !== null && value !== undefined && String(value).trim() !== '' && parsed === null;
   const consent = b.consent_to_contact === true || b.consent_to_contact === 'true';
   const bookingRequest = b.booking_request === true;
   const travelDate = clean(b.travel_date, 10);
@@ -98,10 +109,14 @@ export default async function handler(req, res) {
   const source = clean(b.source || b.lead_source || utm.utm_source || 'website', 60) || 'website';
   const visitorId = UUID.test(clean(b.visitor_id, 36)) ? clean(b.visitor_id, 36) : null;
 
-  if (!name || (!explicitPhone && !explicitEmail) || !partySize || !consent ||
-      (!bookingRequest && (!destination || !duration || budget === null)) ||
-      (bookingRequest && (!explicitEmail || !b.selected_tour_id || !travelDate))) {
+  if (!name || (!explicitPhone && !explicitEmail) || !consent ||
+      (bookingRequest && (!explicitEmail || !b.selected_tour_id || !travelDate || !partySize))) {
     return send(res, 400, { error: 'Vui lòng điền đủ thông tin hợp lệ và đồng ý để chúng tôi liên hệ.' });
+  }
+  if (invalidOptionalNumber(b.duration, duration) ||
+      invalidOptionalNumber(b.budget, budget) ||
+      invalidOptionalNumber(b.party_size, partySize)) {
+    return send(res, 400, { error: 'Thời lượng, ngân sách hoặc số khách chưa hợp lệ.' });
   }
 
   if (
@@ -118,7 +133,18 @@ export default async function handler(req, res) {
         travelDate < new Date().toISOString().slice(0, 10)) {
       return send(res, 400, { error: 'Ngày khởi hành phải là ngày hợp lệ từ hôm nay trở đi.' });
     }
+  } else if (travelDate) {
+    const parsedDate = new Date(`${travelDate}T00:00:00Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(travelDate) ||
+        !Number.isFinite(parsedDate.getTime()) ||
+        parsedDate.toISOString().slice(0, 10) !== travelDate) {
+      return send(res, 400, { error: 'Ngày đi chưa hợp lệ.' });
+    }
   }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const latestNearDate = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
+  const travelDateNear = Boolean(travelDate && travelDate >= today && travelDate <= latestNearDate);
 
   const requestId = clean(req.headers['idempotency-key'] || b.request_id || '', 80) || crypto.randomUUID();
   const failure = { stage: 'load_tours', status: undefined, databaseCode: undefined };
@@ -147,7 +173,7 @@ export default async function handler(req, res) {
     const scored = scoreLead({
       selectedTour: Boolean(selected),
       tourViews: number(engagement.tour_views, 0, 100) ?? 0,
-      returnVisit: engagement.return_visit === true,
+      returnVisit: false,
     });
     const understanding = understandCustomer({
       interests: list(b.interests),
@@ -169,7 +195,13 @@ export default async function handler(req, res) {
     const prior = await existingResponse.json();
     const first = Array.isArray(prior) ? prior[0] : null;
     if (first) {
-      await recordConsultationVisitor(visitorId, first.lead_id, utm);
+      await recordConsultationVisitor(visitorId, first.lead_id, utm, {
+        phone_provided: Boolean(explicitPhone),
+        travel_date_near: travelDateNear,
+        has_budget: budget !== null && budget > 0,
+        selected_tour: Boolean(selected),
+        party_size_multiple: partySize > 1,
+      });
       return send(res, 200, {
         lead_id: first.lead_id,
         notification_status: first.notification_status || 'PENDING',
@@ -185,7 +217,7 @@ export default async function handler(req, res) {
       : '';
     const recentResponse = await supabase(
       `leads?contact=eq.${encodeURIComponent(contact)}` +
-        `&destination=eq.${encodeURIComponent(destination)}` +
+        (destination ? `&destination=eq.${encodeURIComponent(destination)}` : '') +
         bookingDuplicateFilter +
         `&created_at=gte.${encodeURIComponent(since)}` +
         `&select=lead_id,notification_status&order=created_at.desc&limit=1`,
@@ -197,7 +229,13 @@ export default async function handler(req, res) {
     }
     const recent = await recentResponse.json();
     if (Array.isArray(recent) && recent[0]) {
-      await recordConsultationVisitor(visitorId, recent[0].lead_id, utm);
+      await recordConsultationVisitor(visitorId, recent[0].lead_id, utm, {
+        phone_provided: Boolean(explicitPhone),
+        travel_date_near: travelDateNear,
+        has_budget: budget !== null && budget > 0,
+        selected_tour: Boolean(selected),
+        party_size_multiple: partySize > 1,
+      });
       return send(res, 200, {
         lead_id: recent[0].lead_id,
         notification_status: recent[0].notification_status || 'PENDING',
@@ -288,9 +326,42 @@ export default async function handler(req, res) {
       throw new Error('Lead ID missing after save');
     }
 
-    await recordConsultationVisitor(visitorId, lead.lead_id, utm);
+    const visitorScore = await recordConsultationVisitor(visitorId, lead.lead_id, utm, {
+      phone_provided: Boolean(explicitPhone),
+      travel_date_near: travelDateNear,
+      has_budget: budget !== null && budget > 0,
+      selected_tour: Boolean(selected),
+      party_size_multiple: partySize > 1,
+    });
 
-    const notificationStatus = await notifyAndRecord({ ...row, lead_id: lead.lead_id });
+    let notificationLead = { ...row, lead_id: lead.lead_id };
+    if (visitorScore && Number.isFinite(Number(visitorScore.score)) &&
+        ['COLD', 'WARM', 'HOT'].includes(visitorScore.temperature)) {
+      const scoreUpdate = {
+        lead_score: Number(visitorScore.score),
+        lead_level: visitorScore.temperature,
+        score_signals: visitorScore.signals || {},
+      };
+      notificationLead = { ...notificationLead, ...scoreUpdate };
+      try {
+        const scoreResponse = await supabase(`leads?lead_id=eq.${encodeURIComponent(lead.lead_id)}`, {
+          method: 'PATCH',
+          body: JSON.stringify(scoreUpdate),
+        });
+        if (!scoreResponse.ok) {
+          console.error('[api/leads] Could not update lead engagement score', {
+            status: scoreResponse.status,
+            databaseCode: await supabaseErrorCode(scoreResponse),
+          });
+        }
+      } catch (error) {
+        console.error('[api/leads] Could not update lead engagement score', {
+          errorCode: error?.code || error?.name || 'UNKNOWN',
+        });
+      }
+    }
+
+    const notificationStatus = await notifyAndRecord(notificationLead);
 
     return send(res, 201, {
       lead_id: lead.lead_id,

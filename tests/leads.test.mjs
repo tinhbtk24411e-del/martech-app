@@ -31,6 +31,7 @@ function supabaseMock({
   insertedLeads,
   automationPayloads,
   visitorEvents = [],
+  scoreUpdates = [],
   automationUrls = [],
   failScoringColumns = false,
   automationAck = { notification_sent: true },
@@ -39,13 +40,20 @@ function supabaseMock({
     const url = String(input);
     if (url.includes('/rest/v1/leads?request_id=')) return json([]);
     if (url.includes('/rest/v1/rpc/record_website_visitor')) {
-      visitorEvents.push(JSON.parse(options.body));
-      return json(null);
+      const event = JSON.parse(options.body);
+      visitorEvents.push(event);
+      return json(event.p_event === 'consultation_submitted'
+        ? { score: 45, temperature: 'WARM', signals: { phone_provided: true } }
+        : null);
     }
     if (url.includes('/rest/v1/leads?contact=')) {
-      const contact = decodeURIComponent(url.match(/contact=eq\.([^&]+)/)[1]);
-      const destination = decodeURIComponent(url.match(/destination=eq\.([^&]+)/)[1]);
-      const match = insertedLeads.find((l) => l.contact === contact && l.destination === destination);
+      const contactMatch = url.match(/contact=eq\.([^&]+)/);
+      if (!contactMatch) return json([]);
+      const contact = decodeURIComponent(contactMatch[1]);
+      const destinationMatch = url.match(/destination=eq\.([^&]+)/);
+      const destination = destinationMatch ? decodeURIComponent(destinationMatch[1]) : null;
+      const match = insertedLeads.find((l) =>
+        l.contact === contact && (destination === null || l.destination === destination));
       return json(match ? [{ lead_id: match.lead_id, notification_status: 'SENT' }] : []);
     }
     if (url.endsWith('/rest/v1/leads') && options.method === 'POST') {
@@ -55,6 +63,7 @@ function supabaseMock({
       return json([{ lead_id: lead.lead_id }], 201);
     }
     if (url.includes('/rest/v1/leads?lead_id=') && options.method === 'PATCH') {
+      scoreUpdates.push(JSON.parse(options.body));
       return new Response(null, { status: 204 });
     }
     if (url === ENV.N8N_WEBHOOK_URL || url === ENV.N8N_BOOKING_WEBHOOK_URL) {
@@ -74,11 +83,13 @@ function submit(ip, key, body) {
 test('upgrades a tracked visitor to HIGH when a consultation form is saved', async () => {
   const insertedLeads = [];
   const visitorEvents = [];
+  const scoreUpdates = [];
   const automationPayloads = [];
   const res = await withEnv(ENV, () => withFetch(supabaseMock({
     insertedLeads,
     automationPayloads,
     visitorEvents,
+    scoreUpdates,
   }), () => submit('192.0.2.12', 'tracked-high-priority', leadBody({
     visitor_id: '6f1d2c3a-1111-4222-8333-444455556666',
     utm_source: 'instagram',
@@ -90,6 +101,11 @@ test('upgrades a tracked visitor to HIGH when a consultation form is saved', asy
   assert.equal(insertedLeads[0].lead_priority, 'HIGH');
   assert.equal(insertedLeads[0].visitor_id, '6f1d2c3a-1111-4222-8333-444455556666');
   assert.equal(automationPayloads[0].lead_priority, 'HIGH');
+  assert.deepEqual(scoreUpdates[0], {
+    lead_score: 45,
+    lead_level: 'WARM',
+    score_signals: { phone_provided: true },
+  });
   assert.deepEqual(visitorEvents[0], {
     p_visitor_id: '6f1d2c3a-1111-4222-8333-444455556666',
     p_event: 'consultation_submitted',
@@ -99,7 +115,32 @@ test('upgrades a tracked visitor to HIGH when a consultation form is saved', asy
     p_utm_content: null,
     p_utm_term: null,
     p_lead_id: insertedLeads[0].lead_id,
+    p_form_data: {
+      phone_provided: false,
+      travel_date_near: false,
+      has_budget: true,
+      selected_tour: true,
+      party_size_multiple: true,
+    },
   });
+});
+
+test('accepts a short consultation form without inventing trip details', async () => {
+  const insertedLeads = [];
+  const automationPayloads = [];
+  await withEnv(ENV, () => withFetch(supabaseMock({ insertedLeads, automationPayloads }), async () => {
+    const res = await submit('192.0.2.13', 'short-consultation', {
+      name: 'Short Form',
+      phone: '0909123456',
+      consent_to_contact: true,
+    });
+    assert.equal(res.statusCode, 201);
+    assert.equal(insertedLeads[0].destination, null);
+    assert.equal(insertedLeads[0].duration, null);
+    assert.equal(insertedLeads[0].budget, null);
+    assert.equal(insertedLeads[0].party_size, null);
+    assert.equal(automationPayloads[0].phone, '0909123456');
+  }));
 });
 
 test('persists server score, NEW status, and sends automation payload', async () => {
@@ -110,12 +151,13 @@ test('persists server score, NEW status, and sends automation payload', async ()
     const res = await submit('192.0.2.10', 'lead-test-request', leadBody({ lead_score: 1, lead_level: 'COLD' }));
     assert.equal(res.statusCode, 201);
     assert.equal(res.body.notification_status, 'SENT');
-    assert.equal(insertedLeads[0].lead_score, 80);
+    assert.equal(insertedLeads[0].lead_score, 70);
     assert.equal(insertedLeads[0].lead_level, 'HOT');
     assert.equal(insertedLeads[0].lead_status, 'NEW');
     assert.equal(insertedLeads[0].customer_segment, 'family');
     assert.deepEqual(insertedLeads[0].customer_traits, ['family', 'resort']);
-    assert.equal(automationPayloads[0].lead_score, 80);
+    assert.equal(automationPayloads[0].lead_score, 70);
+    assert.equal(insertedLeads[0].score_signals.return_visit, false);
     assert.equal(automationPayloads[0].notification_status, undefined);
     assert.deepEqual(automationUrls, [ENV.N8N_WEBHOOK_URL]);
   }));
