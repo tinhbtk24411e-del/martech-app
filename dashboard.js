@@ -21,6 +21,10 @@ function renderCards(data) {
   const total = count(data.total);
   const booked = count(data.by_status?.BOOKED);
   const cards = [
+    ['Khách truy cập', numberFormat.format(count(data.visitor_total)), 'Phiên ẩn danh trong 180 ngày'],
+    ['Chỉ xem web', numberFormat.format(count(data.visitor_by_priority?.LOW)), 'Ưu tiên LOW'],
+    ['Đã dùng AI', numberFormat.format(count(data.visitor_by_priority?.MEDIUM)), 'Ưu tiên MEDIUM'],
+    ['Đã gửi tư vấn', numberFormat.format(count(data.visitor_by_priority?.HIGH)), 'Ưu tiên HIGH'],
     ['Tổng lead', numberFormat.format(total), 'Trong 180 ngày gần nhất'],
     ['Đã đặt tour', numberFormat.format(booked), 'Trạng thái BOOKED'],
     ['Tỷ lệ đặt tour', percentFormat.format(total ? booked / total : 0), 'Đặt tour / tổng lead'],
@@ -71,7 +75,7 @@ function renderBreakdown(target, values, order) {
     bar.style.width = `${value ? Math.max(2, value / max * 100) : 0}%`;
     track.append(bar);
     const share = document.createElement('small');
-    share.textContent = `${percentFormat.format(total ? value / total : 0)} tổng lead`;
+    share.textContent = `${percentFormat.format(total ? value / total : 0)} tổng nhóm`;
     row.append(heading, track, share);
     return row;
   }));
@@ -101,6 +105,7 @@ function renderMonths(byMonth) {
 function render(data) {
   renderCards(data);
   renderBreakdown('#statusBreakdown', data.by_status || {}, LEAD_STATUSES);
+  renderBreakdown('#visitorSourceBreakdown', data.visitor_by_source || {}, ['facebook', 'tiktok', 'instagram']);
   renderBreakdown('#sourceBreakdown', data.by_source || {}, []);
   renderMonths(data.by_month || {});
   $('#lastUpdated').textContent = data.generated_at
@@ -115,20 +120,21 @@ async function loadKpi() {
   const message = $('#dashboardMessage');
   button.disabled = true;
   message.className = 'dashboard-message';
-  message.textContent = liveData ? 'Đang cập nhật dữ liệu…' : 'Đang tải dữ liệu lead…';
+  message.textContent = liveData ? 'Đang cập nhật dữ liệu…' : 'Đang tải dữ liệu visitor và lead…';
 
   try {
     const response = await fetch('/api/kpi', { cache: 'no-store' });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Không tải được dữ liệu KPI.');
-    if (!data || !Number.isFinite(Number(data.total)) || !data.by_status ||
-        !data.by_level || !data.by_source || !data.by_month) {
+    if (!data || !Number.isFinite(Number(data.total)) || !Number.isFinite(Number(data.visitor_total)) ||
+        !data.by_status || !data.by_level || !data.by_source || !data.visitor_by_priority ||
+        !data.visitor_by_source || !data.by_month) {
       throw new Error('Dữ liệu KPI trả về không đúng định dạng.');
     }
 
     liveData = data;
     render(data);
-    message.textContent = `Đang hiển thị ${numberFormat.format(count(data.total))} lead trong ${count(data.window_days) || 180} ngày gần nhất.`;
+    message.textContent = `Đang hiển thị ${numberFormat.format(count(data.visitor_total))} visitor và ${numberFormat.format(count(data.total))} lead trong ${count(data.window_days) || 180} ngày gần nhất.`;
   } catch (error) {
     message.className = 'dashboard-message error';
     message.textContent = error instanceof TypeError
@@ -319,14 +325,17 @@ function csvCell(value) {
 function exportCsv() {
   if (!liveData) return;
   const rows = [
-    ['Nhóm', 'Giá trị', 'Số lead'],
+    ['Nhóm', 'Giá trị', 'Số lượng'],
+    ...Object.entries(liveData.visitor_by_priority || {}).map(([key, value]) => ['Ưu tiên visitor', key, count(value)]),
+    ...Object.entries(liveData.visitor_by_source || {}).map(([key, value]) => ['Nguồn visitor UTM', key, count(value)]),
     ...Object.entries(liveData.by_status || {}).map(([key, value]) => ['Trạng thái', key, count(value)]),
     ...Object.entries(liveData.by_level || {}).map(([key, value]) => ['Mức ưu tiên', key, count(value)]),
     ...Object.entries(liveData.by_source || {}).map(([key, value]) => ['Nguồn UTM', key, count(value)]),
     ...Object.entries(liveData.by_month || {}).map(([key, value]) => ['Tháng', key, count(value)]),
   ];
   const content = [
-    ['Dữ liệu lead tổng hợp', `180 ngày gần nhất`],
+    ['Dữ liệu visitor và lead tổng hợp', `180 ngày gần nhất`],
+    ['Khách truy cập', count(liveData.visitor_total)],
     ['Tổng lead', count(liveData.total)],
     ['Lead có chọn tour', count(liveData.with_selected_tour)],
     [],
@@ -336,7 +345,7 @@ function exportCsv() {
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
   link.href = url;
-  link.download = 'vietjourney-lead-kpi.csv';
+  link.download = 'vietjourney-visitor-lead-kpi.csv';
   document.body.append(link);
   link.click();
   link.remove();

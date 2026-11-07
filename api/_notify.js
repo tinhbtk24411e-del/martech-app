@@ -30,6 +30,7 @@ export function automationPayload(row) {
     source: row.source,
     lead_score: row.lead_score,
     lead_level: row.lead_level,
+    lead_priority: row.lead_priority || 'HIGH',
     score_signals: row.score_signals,
     customer_segment: row.customer_segment,
     customer_traits: row.customer_traits,

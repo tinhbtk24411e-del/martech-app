@@ -133,7 +133,22 @@ where voucher_status is null;
 alter table public.leads
   add column if not exists sales_note text,
   add column if not exists notification_attempts integer not null default 0,
-  add column if not exists last_notification_at timestamptz;
+  add column if not exists last_notification_at timestamptz,
+  add column if not exists visitor_id uuid,
+  add column if not exists lead_priority text not null default 'HIGH';
+
+alter table public.leads
+  drop constraint if exists leads_lead_priority_check;
+
+-- Existing lead rows are consultation submissions; normalize legacy values before validation.
+update public.leads
+set lead_priority = 'HIGH'
+where lead_priority is null
+   or lead_priority not in ('LOW', 'MEDIUM', 'HIGH');
+
+alter table public.leads
+  add constraint leads_lead_priority_check
+  check (lead_priority in ('LOW', 'MEDIUM', 'HIGH'));
 
 -- Normalise legacy priority values written by earlier versions into the team's status set.
 update public.leads
@@ -167,3 +182,140 @@ alter table public.leads
 alter table public.leads
   add constraint leads_booking_confirmation_status_check
   check (booking_confirmation_status in ('NOT_READY', 'PENDING', 'PROCESSING', 'FAILED', 'SENT'));
+
+-- ---------------------------------------------------------------
+-- v3: anonymous visitor funnel and campaign attribution
+-- ---------------------------------------------------------------
+
+create table if not exists public.website_visitors (
+  visitor_id uuid primary key,
+  utm_source text not null default 'direct',
+  utm_medium text,
+  utm_campaign text,
+  utm_content text,
+  utm_term text,
+  priority text not null default 'LOW' check (priority in ('LOW', 'MEDIUM', 'HIGH')),
+  page_views integer not null default 0 check (page_views >= 0),
+  ai_used boolean not null default false,
+  consultation_submitted boolean not null default false,
+  lead_id uuid,
+  first_seen_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now()
+);
+
+create index if not exists website_visitors_first_seen_idx
+  on public.website_visitors (first_seen_at desc);
+create index if not exists website_visitors_source_priority_idx
+  on public.website_visitors (utm_source, priority, first_seen_at desc);
+
+alter table public.website_visitors enable row level security;
+
+create or replace function public.record_website_visitor(
+  p_visitor_id uuid,
+  p_event text,
+  p_utm_source text default 'direct',
+  p_utm_medium text default null,
+  p_utm_campaign text default null,
+  p_utm_content text default null,
+  p_utm_term text default null,
+  p_lead_id uuid default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  safe_source text;
+begin
+  if p_event not in ('visit', 'ai_used', 'consultation_submitted') then
+    raise exception 'Unsupported visitor event';
+  end if;
+
+  safe_source := case
+    when lower(coalesce(p_utm_source, 'direct')) in ('facebook', 'tiktok', 'instagram', 'google', 'direct')
+      then lower(coalesce(p_utm_source, 'direct'))
+    else 'other'
+  end;
+
+  insert into public.website_visitors (
+    visitor_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+    priority, page_views, ai_used, consultation_submitted, lead_id
+  )
+  values (
+    p_visitor_id, safe_source, p_utm_medium, p_utm_campaign, p_utm_content, p_utm_term,
+    case p_event
+      when 'consultation_submitted' then 'HIGH'
+      when 'ai_used' then 'MEDIUM'
+      else 'LOW'
+    end,
+    case when p_event = 'visit' then 1 else 0 end,
+    p_event = 'ai_used',
+    p_event = 'consultation_submitted',
+    p_lead_id
+  )
+  on conflict (visitor_id) do update set
+    utm_source = case
+      when public.website_visitors.utm_source = 'direct' and excluded.utm_source <> 'direct'
+        then excluded.utm_source
+      else public.website_visitors.utm_source
+    end,
+    utm_medium = coalesce(public.website_visitors.utm_medium, excluded.utm_medium),
+    utm_campaign = coalesce(public.website_visitors.utm_campaign, excluded.utm_campaign),
+    utm_content = coalesce(public.website_visitors.utm_content, excluded.utm_content),
+    utm_term = coalesce(public.website_visitors.utm_term, excluded.utm_term),
+    priority = case
+      when excluded.priority = 'HIGH' then 'HIGH'
+      when excluded.priority = 'MEDIUM' and public.website_visitors.priority = 'LOW' then 'MEDIUM'
+      else public.website_visitors.priority
+    end,
+    page_views = public.website_visitors.page_views + excluded.page_views,
+    ai_used = public.website_visitors.ai_used or excluded.ai_used,
+    consultation_submitted = public.website_visitors.consultation_submitted or excluded.consultation_submitted,
+    lead_id = coalesce(excluded.lead_id, public.website_visitors.lead_id),
+    last_seen_at = now();
+end;
+$$;
+
+revoke all on function public.record_website_visitor(uuid, text, text, text, text, text, text, uuid)
+  from public, anon, authenticated;
+grant execute on function public.record_website_visitor(uuid, text, text, text, text, text, text, uuid)
+  to service_role;
+
+create or replace function public.get_website_visitor_kpis(p_since timestamptz)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'total',
+      (select count(*) from public.website_visitors where first_seen_at >= p_since),
+    'by_priority',
+      coalesce((
+        select jsonb_object_agg(priority, total)
+        from (
+          select priority, count(*) as total
+          from public.website_visitors
+          where first_seen_at >= p_since
+          group by priority
+        ) counts
+      ), '{}'::jsonb),
+    'by_source',
+      coalesce((
+        select jsonb_object_agg(utm_source, total)
+        from (
+          select utm_source, count(*) as total
+          from public.website_visitors
+          where first_seen_at >= p_since
+          group by utm_source
+        ) counts
+      ), '{}'::jsonb)
+  );
+$$;
+
+revoke all on function public.get_website_visitor_kpis(timestamptz)
+  from public, anon, authenticated;
+grant execute on function public.get_website_visitor_kpis(timestamptz)
+  to service_role;

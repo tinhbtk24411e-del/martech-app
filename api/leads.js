@@ -6,7 +6,14 @@ import { deliverToAutomation, updateNotificationStatus } from './_notify.js';
 export const config = { api: { bodyParser: { sizeLimit: '16kb' } } };
 
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
-const SCORING_COLUMNS = ['score_signals', 'customer_segment', 'customer_traits'];
+const OPTIONAL_LEAD_COLUMNS = [
+  'score_signals',
+  'customer_segment',
+  'customer_traits',
+  'visitor_id',
+  'lead_priority',
+];
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function normalizeUtm(data) {
@@ -34,6 +41,36 @@ async function notifyAndRecord(lead) {
   return recorded ? status : 'PENDING';
 }
 
+async function recordConsultationVisitor(visitorId, leadId, utm) {
+  if (!visitorId) return;
+
+  try {
+    const response = await supabase('rpc/record_website_visitor', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_visitor_id: visitorId,
+        p_event: 'consultation_submitted',
+        p_utm_source: utm.utm_source || 'direct',
+        p_utm_medium: utm.utm_medium || null,
+        p_utm_campaign: utm.utm_campaign || null,
+        p_utm_content: utm.utm_content || null,
+        p_utm_term: utm.utm_term || null,
+        p_lead_id: leadId,
+      }),
+    });
+    if (!response.ok) {
+      console.error('[api/leads] Could not upgrade visitor priority', {
+        status: response.status,
+        databaseCode: await supabaseErrorCode(response),
+      });
+    }
+  } catch (error) {
+    console.error('[api/leads] Could not upgrade visitor priority', {
+      errorCode: error?.code || error?.name || 'UNKNOWN',
+    });
+  }
+}
+
 export default async function handler(req, res) {
   if (!method(req, res)) return;
 
@@ -59,6 +96,7 @@ export default async function handler(req, res) {
   const voucherStatus = clean(b.voucher_status || 'PENDING', 30) || 'PENDING';
   const voucherChannel = clean(b.voucher_channel || 'email', 30) || 'email';
   const source = clean(b.source || b.lead_source || utm.utm_source || 'website', 60) || 'website';
+  const visitorId = UUID.test(clean(b.visitor_id, 36)) ? clean(b.visitor_id, 36) : null;
 
   if (!name || (!explicitPhone && !explicitEmail) || !partySize || !consent ||
       (!bookingRequest && (!destination || !duration || budget === null)) ||
@@ -131,6 +169,7 @@ export default async function handler(req, res) {
     const prior = await existingResponse.json();
     const first = Array.isArray(prior) ? prior[0] : null;
     if (first) {
+      await recordConsultationVisitor(visitorId, first.lead_id, utm);
       return send(res, 200, {
         lead_id: first.lead_id,
         notification_status: first.notification_status || 'PENDING',
@@ -158,6 +197,7 @@ export default async function handler(req, res) {
     }
     const recent = await recentResponse.json();
     if (Array.isArray(recent) && recent[0]) {
+      await recordConsultationVisitor(visitorId, recent[0].lead_id, utm);
       return send(res, 200, {
         lead_id: recent[0].lead_id,
         notification_status: recent[0].notification_status || 'PENDING',
@@ -194,9 +234,11 @@ export default async function handler(req, res) {
       lead_source: bookingRequest ? 'booking_form' : source,
       lead_score: scored.score,
       lead_level: scored.level,
+      lead_priority: 'HIGH',
       score_signals: scored.signals,
       customer_segment: understanding.segment,
       customer_traits: understanding.traits,
+      visitor_id: visitorId,
       voucher_code: voucherCode || null,
       voucher_status: voucherStatus,
       voucher_channel: voucherChannel,
@@ -220,11 +262,11 @@ export default async function handler(req, res) {
       failure.databaseCode = await supabaseErrorCode(saveResponse);
 
       if (['PGRST204', '42703'].includes(failure.databaseCode)) {
-        console.error('[api/leads] Scoring columns unavailable; retrying without optional scoring fields', {
+        console.error('[api/leads] Optional lead columns unavailable; retrying without them', {
           databaseCode: failure.databaseCode,
         });
         const compatibleRow = { ...row };
-        for (const column of SCORING_COLUMNS) delete compatibleRow[column];
+        for (const column of OPTIONAL_LEAD_COLUMNS) delete compatibleRow[column];
         saveResponse = await supabase('leads', {
           ...saveOptions,
           body: JSON.stringify(compatibleRow),
@@ -245,6 +287,8 @@ export default async function handler(req, res) {
     if (!lead?.lead_id) {
       throw new Error('Lead ID missing after save');
     }
+
+    await recordConsultationVisitor(visitorId, lead.lead_id, utm);
 
     const notificationStatus = await notifyAndRecord({ ...row, lead_id: lead.lead_id });
 

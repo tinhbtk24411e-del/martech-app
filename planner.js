@@ -1,3 +1,6 @@
+import { recordVisitorEvent } from './visitor-tracking.js';
+recordVisitorEvent('visit');
+
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 function toLocalIsoDate(date) {
@@ -446,6 +449,7 @@ async function sendChatMessage(query) {
     chatConversation = chatConversation.slice(-10);
     appendChatMessage(reply);
     addConsultLink();
+    recordVisitorEvent('ai_used');
   } catch (error) {
     const message = error instanceof TypeError
       ? 'Không kết nối được với AI. Bạn thử lại sau nhé.'

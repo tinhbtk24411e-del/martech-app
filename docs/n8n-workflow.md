@@ -13,7 +13,7 @@ Backend lưu lead vào Supabase trước khi gọi n8n. Yêu cầu tư vấn g�
 3. Hai Webhook có thể dùng chung Header Auth credential `X-Automation-Secret`, khớp giá trị `N8N_WEBHOOK_SECRET`. Không đưa URL hoặc secret lên frontend.
 4. Cả hai workflow nhận payload lead ở `body` (các cấu hình n8n có thể chuyển body thành root; kiểm tra output của Webhook node).
 
-`/api/leads` gửi các thông tin liên hệ đã được khách đồng ý cung cấp, nhu cầu, tóm tắt tư vấn AI, UTM, tour quan tâm, `lead_score`, `lead_level`, `score_signals`, `customer_segment` và `customer_traits`. Yêu cầu từ form đặt tour có `booking_request: true`, `booking_status: "AWAITING_SALES_CONFIRMATION"`, `booking_price_per_person`, và `lead_source: "booking_form"`; backend định tuyến loại này sang `N8N_BOOKING_WEBHOOK_URL`, không gửi qua workflow tư vấn.
+`/api/leads` gửi các thông tin liên hệ đã được khách đồng ý cung cấp, nhu cầu, tóm tắt tư vấn AI, UTM, tour quan tâm, `lead_priority`, `lead_score`, `lead_level`, `score_signals`, `customer_segment` và `customer_traits`. `lead_priority` là mức funnel HIGH của form tư vấn; `lead_level` là score HOT/WARM/COLD. Yêu cầu từ form đặt tour có `booking_request: true`, `booking_status: "AWAITING_SALES_CONFIRMATION"`, `booking_price_per_person`, và `lead_source: "booking_form"`; backend định tuyến loại này sang `N8N_BOOKING_WEBHOOK_URL`, không gửi qua workflow tư vấn.
 
 ## 2. Phân loại nhu cầu và ưu tiên lead
 
@@ -31,6 +31,7 @@ API tính các trường này sau khi validate lead và tour. Đây là rule-bas
 - `resort`: có sở thích Nghỉ dưỡng; `explorer`: có sở thích Trekking, Khám phá hoặc Thiên nhiên.
 - Một lead có thể có nhiều `customer_traits`; `customer_segment` là nhóm ưu tiên đầu tiên. Không đủ tín hiệu thì dùng `general`.
 - Tín hiệu lượt xem/quay lại do trình duyệt cung cấp nên phù hợp cho demo/ưu tiên tham khảo, không dùng làm quyết định duy nhất.
+- Funnel visitor riêng ghi nhận phiên ẩn danh: chỉ xem web = `LOW`, dùng AI thành công = `MEDIUM`, gửi form tư vấn = `HIGH`. `LOW`/`MEDIUM` chỉ được lưu trong bảng traffic, không gửi sang webhook CRM.
 
 Không ghi đè các trường scoring này bằng một phép tính khác trong n8n. Nếu cần mô hình AI, lưu kết quả thành trường enrichment riêng, giữ lại score rule-based để đối chiếu.
 
@@ -38,13 +39,13 @@ Không ghi đè các trường scoring này bằng một phép tính khác trong
 
 Thêm Google Sheets node dạng Append Row và ánh xạ tối thiểu:
 
-`lead_id`, `created_at` (thời điểm xử lý nếu payload chưa có), `name`, `email`, `phone`, `destination`, `travel_date`, `budget`, `party_size`, `selected_tour_name`, `interests`, `lead_score`, `lead_level`, `score_signals`, `customer_segment`, `customer_traits`, `source`, `utm_source`, `utm_medium`, `utm_campaign`, `note`, `consent_to_contact`.
+`lead_id`, `created_at` (thời điểm xử lý nếu payload chưa có), `name`, `email`, `phone`, `destination`, `travel_date`, `budget`, `party_size`, `selected_tour_name`, `interests`, `lead_priority`, `lead_score`, `lead_level`, `score_signals`, `customer_segment`, `customer_traits`, `source`, `utm_source`, `utm_medium`, `utm_campaign`, `note`, `consent_to_contact`.
 
 Đặt tên sheet là `Leads` và chỉ cho người được phân quyền truy cập vì sheet có dữ liệu liên hệ cá nhân.
 
 ## 4. Thông báo Sales và follow-up
 
-- Dùng IF node để phân tuyến: `HOT` thông báo ngay cho Sales; `WARM` vào hàng đợi follow-up; `COLD` gửi nội dung chăm sóc phù hợp.
+- Dùng IF node để phân tuyến lead đã gửi form theo `lead_priority = HIGH`; dùng `lead_level` HOT/WARM/COLD làm tín hiệu score bổ sung. Visitor LOW/MEDIUM chưa có thông tin liên hệ và không được gửi sang webhook lead.
 - Gửi lead đến email/Slack/Telegram nội bộ. Chỉ gửi voucher marketing cho khách qua email khi có email và consent/chính sách phù hợp; form hiện đồng ý cho mục đích liên hệ tư vấn.
 - Workflow Booking Confirmation gửi email nội bộ cho Sales khi nhận yêu cầu mới. Chỉ sau khi Sales chuyển lead sang `BOOKED`, backend gọi lại webhook với `booking_event: "sales_confirmed"` để gửi email xác nhận booking cho khách. `booking_price_per_person` là giá tham khảo từ catalog; nội dung email khách không được khẳng định các điều kiện Sales chưa xác nhận.
 - Vì webhook có thể được retry, dùng khóa `lead_id:customer` và `lead_id:sales` trong kho bền vững; lưu trạng thái từng kênh trước/sau khi gửi để retry không gửi lại kênh đã thành công. Xem [N8N_SETUP.md](./N8N_SETUP.md) về xử lý trạng thái `PROCESSING`, chạy tuần tự và giới hạn exactly-once.

@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="description" content="Dashboard theo dõi lead thực tế từ hệ thống VietJourney.">
-    <title>VietJourney | Dashboard dữ liệu lead</title>
+    <meta name="description" content="Dashboard theo dõi visitor ẩn danh và lead từ hệ thống VietJourney.">
+    <title>VietJourney | Dashboard visitor & lead</title>
     <link rel="stylesheet" href="dashboard.css">
   </head>
   <body>
@@ -16,7 +16,7 @@
       <section class="intro">
         <p class="eyebrow">MARTECH REVENUE ENGINE</p>
         <h1>Hiệu quả lead & Sales</h1>
-        <p>Số liệu tổng hợp từ lead đã lưu trên hệ thống trong 180 ngày gần nhất. Không bao gồm lượt truy cập, doanh thu hoặc chi phí quảng cáo.</p>
+        <p>Số liệu tổng hợp từ phiên truy cập ẩn danh và lead trong 180 ngày gần nhất. Không lưu IP hoặc nội dung chat.</p>
         <div class="toolbar">
           <button id="refreshKpi" type="button">Làm mới dữ liệu</button>
           <button id="exportCsv" type="button" class="button-secondary" disabled>Tải CSV ↓</button>
@@ -47,6 +47,14 @@
         <div class="panel-grid">
           <section class="panel">
             <div class="panel-heading">
+              <div><p class="eyebrow">TRAFFIC WEBSITE</p><h2>Visitor theo UTM source</h2></div>
+              <span>Facebook · TikTok · Instagram</span>
+            </div>
+            <div id="visitorSourceBreakdown" class="breakdown" aria-live="polite"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
               <div><p class="eyebrow">TRẠNG THÁI SALES</p><h2>Pipeline lead</h2></div>
               <span>Lead trong 180 ngày</span>
             </div>
@@ -55,7 +63,7 @@
 
           <section class="panel">
             <div class="panel-heading">
-              <div><p class="eyebrow">NGUỒN TIẾP CẬN</p><h2>Lead theo nguồn</h2></div>
+              <div><p class="eyebrow">NGUỒN CHUYỂN ĐỔI</p><h2>Lead theo nguồn</h2></div>
               <span>UTM source</span>
             </div>
             <div id="sourceBreakdown" class="breakdown" aria-live="polite"></div>

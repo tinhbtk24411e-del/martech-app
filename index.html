@@ -129,7 +129,8 @@
           <fieldset id="interestsField"><legend>Sở thích</legend><div id="leadInterests" class="chips"></div></fieldset>
           <label id="noteField">Lời nhắn cho tụi mình<textarea name="note" maxlength="1000" rows="3" placeholder="Ví dụ: Mình đi cùng gia đình và thích gần biển..."></textarea></label>
           <label class="consent"><input name="consent_to_contact" type="checkbox" value="true" required> <span id="contactConsentText">Tôi đồng ý để VietJourney liên hệ tư vấn về yêu cầu này.</span></label>
-          <label id="trackingConsent" class="consent"><input name="behavior_tracking" type="checkbox" value="true"> Cho phép lưu tín hiệu xem tour và quay lại trên trình duyệt để cá nhân hóa tư vấn (tùy chọn).</label>
+          <label id="trackingConsent" class="consent"><input name="behavior_tracking" type="checkbox" value="true"> Cho phép lưu tín hiệu xem chi tiết tour và quay lại trên trình duyệt để cá nhân hóa tư vấn (tùy chọn).</label>
+          <p class="field-hint">Website ghi nhận phiên truy cập ẩn danh và UTM để đo hiệu quả chiến dịch; không lưu IP hoặc nội dung chat. Tín hiệu xem tour và quay lại chỉ lưu khi bạn chọn ô trên.</p>
           <button id="leadSubmit" class="button coral" type="submit">Gửi yêu cầu tư vấn</button>
           <button id="switchToInquiry" class="button ghost" type="button" hidden>Chỉ muốn hỏi tư vấn</button>
           <p class="form-message" aria-live="polite"></p>
@@ -156,7 +157,7 @@
         <a href="dashboard.html">Dashboard demo</a>
         <a href="docs/README.md">Chính sách bảo mật</a>
       </div>
-      <small>© 2026 VietJourney. Cùng bạn đi khắp Việt Nam.</small>
+      <small>Website đo lượt truy cập bằng mã phiên ẩn danh trong tab hiện tại; không lưu IP hoặc nội dung chat. © 2026 VietJourney.</small>
     </footer>
     <dialog id="tourDialog" class="tour-dialog" aria-labelledby="dialogTitle">
       <form method="dialog"><button class="dialog-close" aria-label="Đóng chi tiết tour">×</button></form>

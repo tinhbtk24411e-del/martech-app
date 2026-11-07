@@ -44,8 +44,16 @@ test('KPI endpoint aggregates every Supabase page without returning lead details
   }];
   const requestedRanges = [];
   globalThis.fetch = async (url, options) => {
-    assert.match(String(url), /^https:\/\/supabase\.example\/rest\/v1\/leads\?/);
-    assert.match(String(url), /order=created_at\.asc,lead_id\.asc/);
+    const requestUrl = String(url);
+    if (requestUrl.includes('/rest/v1/rpc/get_website_visitor_kpis')) {
+      return new Response(JSON.stringify({
+        total: 1,
+        by_priority: { MEDIUM: 1 },
+        by_source: { tiktok: 1 },
+      }), { status: 200 });
+    }
+    assert.match(requestUrl, /^https:\/\/supabase\.example\/rest\/v1\/leads\?/);
+    assert.match(requestUrl, /order=created_at\.asc,lead_id\.asc/);
     requestedRanges.push(options.headers.Range);
     assert.equal(options.headers['Range-Unit'], 'items');
     const page = options.headers.Range === '0-999' ? pageOne : pageTwo;
@@ -58,6 +66,9 @@ test('KPI endpoint aggregates every Supabase page without returning lead details
     assert.equal(response.statusCode, 200);
     assert.deepEqual(requestedRanges, ['0-999', '1000-1999']);
     assert.equal(response.data.total, 1001);
+    assert.equal(response.data.visitor_total, 1);
+    assert.equal(response.data.visitor_by_priority.MEDIUM, 1);
+    assert.equal(response.data.visitor_by_source.tiktok, 1);
     assert.equal(response.data.with_selected_tour, 1000);
     assert.equal(response.data.by_status.NEW, 1000);
     assert.equal(response.data.by_status.BOOKED, 1);

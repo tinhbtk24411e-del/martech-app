@@ -1,3 +1,6 @@
+import { getVisitorId, getVisitorUtm, recordVisitorEvent } from './visitor-tracking.js';
+recordVisitorEvent('visit');
+
 const interests = ['Tiết kiệm', 'Khám phá', 'Nghỉ dưỡng', 'Ẩm thực', 'Chụp ảnh', 'Thiên nhiên', 'Trekking', 'Gia đình', 'Văn hóa'];
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
 let tours = [];
@@ -690,6 +693,7 @@ async function sendChatMessage(query) {
     chatConversation = chatConversation.slice(-10);
     appendChatMessage(data.reply.trim());
     addChatLeadAction(query, data.reply.trim());
+    recordVisitorEvent('ai_used');
   } catch (error) {
     const message = error instanceof TypeError
       ? 'Không kết nối được với AI. Bạn thử lại sau nhé.'
@@ -712,6 +716,7 @@ $('#leadForm').addEventListener('submit', async (event) => {
   validateLeadContact();
   if (!form.reportValidity()) return;
   const payload = fieldData(form);
+  payload.visitor_id = getVisitorId();
   payload.booking_request = bookingMode;
   payload.consent_to_contact = form.elements.consent_to_contact.checked;
   payload.interests = values('#leadInterests');
@@ -724,7 +729,7 @@ $('#leadForm').addEventListener('submit', async (event) => {
   payload.zalo_phone = String(payload.zalo_phone || '').trim();
   payload.contact = contact || phone || email || '';
 
-  const utm = getCurrentUtm();
+  const utm = { ...getCurrentUtm(), ...getVisitorUtm() };
   Object.assign(payload, utm);
   payload.source = payload.source || utm.utm_source || 'website';
   payload.engagement = {

@@ -30,6 +30,7 @@ function leadBody(overrides = {}) {
 function supabaseMock({
   insertedLeads,
   automationPayloads,
+  visitorEvents = [],
   automationUrls = [],
   failScoringColumns = false,
   automationAck = { notification_sent: true },
@@ -37,6 +38,10 @@ function supabaseMock({
   return async (input, options = {}) => {
     const url = String(input);
     if (url.includes('/rest/v1/leads?request_id=')) return json([]);
+    if (url.includes('/rest/v1/rpc/record_website_visitor')) {
+      visitorEvents.push(JSON.parse(options.body));
+      return json(null);
+    }
     if (url.includes('/rest/v1/leads?contact=')) {
       const contact = decodeURIComponent(url.match(/contact=eq\.([^&]+)/)[1]);
       const destination = decodeURIComponent(url.match(/destination=eq\.([^&]+)/)[1]);
@@ -65,6 +70,37 @@ function submit(ip, key, body) {
   const res = createResponse();
   return handler({ method: 'POST', headers: { 'idempotency-key': key, 'x-forwarded-for': ip }, body }, res).then(() => res);
 }
+
+test('upgrades a tracked visitor to HIGH when a consultation form is saved', async () => {
+  const insertedLeads = [];
+  const visitorEvents = [];
+  const automationPayloads = [];
+  const res = await withEnv(ENV, () => withFetch(supabaseMock({
+    insertedLeads,
+    automationPayloads,
+    visitorEvents,
+  }), () => submit('192.0.2.12', 'tracked-high-priority', leadBody({
+    visitor_id: '6f1d2c3a-1111-4222-8333-444455556666',
+    utm_source: 'instagram',
+    utm_medium: 'paid_social',
+    utm_campaign: 'summer_sale',
+  }))));
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(insertedLeads[0].lead_priority, 'HIGH');
+  assert.equal(insertedLeads[0].visitor_id, '6f1d2c3a-1111-4222-8333-444455556666');
+  assert.equal(automationPayloads[0].lead_priority, 'HIGH');
+  assert.deepEqual(visitorEvents[0], {
+    p_visitor_id: '6f1d2c3a-1111-4222-8333-444455556666',
+    p_event: 'consultation_submitted',
+    p_utm_source: 'instagram',
+    p_utm_medium: 'paid_social',
+    p_utm_campaign: 'summer_sale',
+    p_utm_content: null,
+    p_utm_term: null,
+    p_lead_id: insertedLeads[0].lead_id,
+  });
+});
 
 test('persists server score, NEW status, and sends automation payload', async () => {
   const insertedLeads = [];
@@ -98,15 +134,20 @@ test('does not create a second lead for the same contact and destination within 
   const insertedLeads = [];
   const automationPayloads = [];
   const automationUrls = [];
-  await withEnv(ENV, () => withFetch(supabaseMock({ insertedLeads, automationPayloads }), async () => {
+  const visitorEvents = [];
+  await withEnv(ENV, () => withFetch(supabaseMock({ insertedLeads, automationPayloads, visitorEvents }), async () => {
     const first = await submit('192.0.2.20', 'resubmit-1', leadBody());
-    const second = await submit('192.0.2.21', 'resubmit-2', leadBody({ note: 'bấm gửi lại' }));
+    const second = await submit('192.0.2.21', 'resubmit-2', leadBody({
+      note: 'bấm gửi lại',
+      visitor_id: '6f1d2c3a-1111-4222-8333-444455556666',
+    }));
     assert.equal(first.statusCode, 201);
     assert.equal(second.statusCode, 200);
     assert.equal(second.body.duplicate, true);
     assert.equal(second.body.lead_id, first.body.lead_id);
     assert.equal(insertedLeads.length, 1);
     assert.equal(automationPayloads.length, 1, 'duplicate must not re-notify Sales');
+    assert.equal(visitorEvents[0].p_event, 'consultation_submitted');
   }));
 });
 

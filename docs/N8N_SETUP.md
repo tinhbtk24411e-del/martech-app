@@ -16,7 +16,7 @@ Hai workflow riêng bạn cung cấp là `1_lead_capture.json` (tư vấn) và `
    ```
 
    Các node sau dùng output của node này làm dữ liệu. Khi phản hồi, lấy ID từ node chuẩn hóa (ví dụ `{{$node["Normalize Lead"].json.lead_id}}`), không giả định `$json.lead_id` còn tồn tại sau các node email.
-5. Chỉ workflow tư vấn phân tuyến theo `lead_level`: `HOT` báo Sales ngay, `WARM` vào hàng đợi follow-up, `COLD` đi luồng nurture phù hợp consent. Không tính lại điểm bằng dữ liệu từ trình duyệt.
+5. Workflow tư vấn phân tuyến theo `lead_priority`: form tư vấn là `HIGH` và báo Sales ngay; visitor `MEDIUM` đã dùng AI và `LOW` chỉ xem web được tổng hợp riêng, không gửi vào webhook lead vì chưa có thông tin liên hệ. Dùng `lead_level` riêng cho score HOT/WARM/COLD. Không tính lại điểm bằng dữ liệu từ trình duyệt.
 6. Workflow booking gửi thông báo cho Sales ngay khi có yêu cầu. Chỉ khi Sales chuyển lead sang `BOOKED`, backend mới gọi lại webhook booking kèm `booking_event: "sales_confirmed"`; nhánh này mới gửi email xác nhận tới khách. Email dùng `booking_price_per_person` làm giá tham khảo, không khẳng định giữ chỗ ngoài những gì Sales đã xác nhận.
 
 ## Chống gửi email trùng và phản hồi

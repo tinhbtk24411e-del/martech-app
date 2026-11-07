@@ -4,6 +4,34 @@ import { supabase } from './_supabase.js';
 const WINDOW_DAYS = 180;
 const PAGE_SIZE = 1000;
 
+async function loadRows(resource, dateColumn, since, select, order) {
+  const rows = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const response = await supabase(
+      `${resource}?${dateColumn}=gte.${encodeURIComponent(since)}` +
+        `&select=${select}&order=${order}`,
+      {
+        headers: {
+          Range: `${offset}-${offset + PAGE_SIZE - 1}`,
+          'Range-Unit': 'items',
+        },
+      },
+    );
+    if (!response.ok) {
+      console.error(`[api/kpi] Could not read ${resource}`, { status: response.status });
+      return null;
+    }
+
+    const page = await response.json();
+    if (!Array.isArray(page)) {
+      console.error(`[api/kpi] Supabase returned an invalid ${resource} page`);
+      return null;
+    }
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) return rows;
+  }
+}
+
 // Aggregate-only endpoint for the dashboard. Returns counts, never contact details.
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -14,27 +42,33 @@ export default async function handler(req, res) {
   const since = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   try {
-    const rows = [];
-    for (let offset = 0; ; offset += PAGE_SIZE) {
-      const response = await supabase(
-        `leads?created_at=gte.${encodeURIComponent(since)}` +
-          `&select=lead_id,created_at,lead_status,lead_level,utm_source,selected_tour_id&order=created_at.asc,lead_id.asc`,
-        {
-          headers: {
-            Range: `${offset}-${offset + PAGE_SIZE - 1}`,
-            'Range-Unit': 'items',
-          },
-        },
-      );
-      if (!response.ok) return send(res, 503, { error: 'Chưa đọc được dữ liệu KPI.' });
-
-      const page = await response.json();
-      if (!Array.isArray(page)) {
-        console.error('[api/kpi] Supabase returned an invalid lead page');
-        return send(res, 503, { error: 'Dữ liệu KPI không đúng định dạng.' });
+    const [rows, visitorResponse] = await Promise.all([
+      loadRows(
+        'leads',
+        'created_at',
+        since,
+        'lead_id,created_at,lead_status,lead_level,utm_source,selected_tour_id',
+        'created_at.asc,lead_id.asc',
+      ),
+      supabase('rpc/get_website_visitor_kpis', {
+        method: 'POST',
+        body: JSON.stringify({ p_since: since }),
+      }),
+    ]);
+    if (!rows || !visitorResponse.ok) {
+      if (visitorResponse && !visitorResponse.ok) {
+        console.error('[api/kpi] Could not aggregate visitor data', { status: visitorResponse.status });
       }
-      rows.push(...page);
-      if (page.length < PAGE_SIZE) break;
+      return send(res, 503, { error: 'Chưa đọc được dữ liệu KPI.' });
+    }
+
+    const visitorStats = await visitorResponse.json();
+    if (!visitorStats || !Number.isFinite(Number(visitorStats.total)) ||
+        !visitorStats.by_priority || typeof visitorStats.by_priority !== 'object' ||
+        Array.isArray(visitorStats.by_priority) || !visitorStats.by_source ||
+        typeof visitorStats.by_source !== 'object' || Array.isArray(visitorStats.by_source)) {
+      console.error('[api/kpi] Supabase returned invalid visitor aggregates');
+      return send(res, 503, { error: 'Dữ liệu KPI không đúng định dạng.' });
     }
 
     const countBy = (key) => rows.reduce((acc, row) => {
@@ -53,12 +87,15 @@ export default async function handler(req, res) {
       generated_at: new Date().toISOString(),
       window_days: WINDOW_DAYS,
       total: rows.length,
+      visitor_total: Number(visitorStats.total),
       with_selected_tour: rows.filter((row) => row.selected_tour_id).length,
       by_status: countBy('lead_status'),
       by_level: countBy('lead_level'),
       by_source: countBy('utm_source'),
+      visitor_by_priority: visitorStats.by_priority,
+      visitor_by_source: visitorStats.by_source,
       by_month: byMonth,
-      note: 'Tổng hợp ẩn danh, không chứa thông tin liên hệ.',
+      note: 'Tổng hợp phiên truy cập ẩn danh và lead; không chứa thông tin liên hệ.',
     });
   } catch (error) {
     console.error('[api/kpi] Request failed', { errorCode: error?.code || error?.name || 'UNKNOWN' });
