@@ -3,14 +3,13 @@ import { supabase } from './_supabase.js';
 const TIMEOUT_MS = 15_000;
 
 export function automationPayload(row) {
-  const bookingRequest = row.lead_source === 'booking_form';
   return {
     lead_id: row.lead_id,
-    booking_request: bookingRequest,
-    booking_status: bookingRequest ? 'AWAITING_SALES_CONFIRMATION' : null,
-    booking_price_per_person: bookingRequest ? row.budget : null,
+    booking_request: true,
+    booking_status: 'AWAITING_SALES_CONFIRMATION',
+    booking_price_per_person: row.budget,
     customer_email_confirmation_required: false,
-    sales_email_notification_required: bookingRequest,
+    sales_email_notification_required: true,
     name: row.name,
     contact: row.contact,
     email: row.email || null,
@@ -48,13 +47,10 @@ export function automationPayload(row) {
 // Returns 'SENT' | 'FAILED' | 'PENDING'. Only n8n's explicit acknowledgment
 // produces SENT or FAILED; anything else stays PENDING for the retry job.
 export async function deliverToAutomation(lead) {
-  const bookingRequest = lead.lead_source === 'booking_form';
-  const url = bookingRequest
-    ? process.env.N8N_BOOKING_WEBHOOK_URL
-    : process.env.N8N_LEAD_WEBHOOK_URL || process.env.N8N_WEBHOOK_URL;
+  const url = process.env.N8N_BOOKING_WEBHOOK_URL;
   if (!url) {
     console.error('[notify] Automation webhook is not configured', {
-      workflow: bookingRequest ? 'booking' : 'lead',
+      workflow: 'booking',
     });
     return 'PENDING';
   }
@@ -87,19 +83,10 @@ export async function deliverToAutomation(lead) {
 
   const ack = await webhook.json().catch(() => ({}));
   const body = ack && typeof ack === 'object' && !Array.isArray(ack) ? ack : {};
-  if (bookingRequest) {
-    if (body.sales_email_sent === true) return 'SENT';
-    if (body.sales_email_sent === false) return 'FAILED';
-    console.error('[notify] Booking sales notification was not confirmed', { status: webhook.status });
-    return 'PENDING';
-  }
+  if (body.sales_email_sent === true) return 'SENT';
+  if (body.sales_email_sent === false) return 'FAILED';
 
-  const confirmed = body.notification_sent ?? body.email_sent;
-
-  if (confirmed === true) return 'SENT';
-  if (confirmed === false) return 'FAILED';
-
-  console.error('[notify] Notification webhook response did not confirm delivery', { status: webhook.status });
+  console.error('[notify] Booking sales notification was not confirmed', { status: webhook.status });
   return 'PENDING';
 }
 

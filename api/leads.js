@@ -87,6 +87,9 @@ export default async function handler(req, res) {
   if (b.website) {
     return send(res, 200, { lead_id: 'received' });
   }
+  if (b.booking_request !== true) {
+    return send(res, 400, { error: 'Website hiện chỉ nhận yêu cầu đặt tour.' });
+  }
 
   const name = clean(b.name, 120);
   const explicitEmail = clean(b.email || '', 160);
@@ -100,7 +103,6 @@ export default async function handler(req, res) {
   const invalidOptionalNumber = (value, parsed) =>
     value !== null && value !== undefined && String(value).trim() !== '' && parsed === null;
   const consent = b.consent_to_contact === true || b.consent_to_contact === 'true';
-  const bookingRequest = b.booking_request === true;
   const travelDate = clean(b.travel_date, 10);
   const utm = normalizeUtm(b);
   const voucherCode = clean(b.voucher_code || '', 80);
@@ -109,9 +111,8 @@ export default async function handler(req, res) {
   const source = clean(b.source || b.lead_source || utm.utm_source || 'website', 60) || 'website';
   const visitorId = UUID.test(clean(b.visitor_id, 36)) ? clean(b.visitor_id, 36) : null;
 
-  if (!name || (!explicitPhone && !explicitEmail) || !consent ||
-      (bookingRequest && (!explicitEmail || !b.selected_tour_id || !travelDate || !partySize))) {
-    return send(res, 400, { error: 'Vui lòng điền đủ thông tin hợp lệ và đồng ý để chúng tôi liên hệ.' });
+  if (!name || !explicitEmail || !consent || !b.selected_tour_id || !travelDate || !partySize) {
+    return send(res, 400, { error: 'Vui lòng điền đủ thông tin đặt tour hợp lệ và đồng ý để chúng tôi liên hệ.' });
   }
   if (invalidOptionalNumber(b.duration, duration) ||
       invalidOptionalNumber(b.budget, budget) ||
@@ -125,21 +126,12 @@ export default async function handler(req, res) {
   ) {
     return send(res, 400, { error: 'Email hoặc số điện thoại chưa hợp lệ.' });
   }
-  if (bookingRequest) {
-    const parsedDate = new Date(`${travelDate}T00:00:00Z`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(travelDate) ||
-        !Number.isFinite(parsedDate.getTime()) ||
-        parsedDate.toISOString().slice(0, 10) !== travelDate ||
-        travelDate < new Date().toISOString().slice(0, 10)) {
-      return send(res, 400, { error: 'Ngày khởi hành phải là ngày hợp lệ từ hôm nay trở đi.' });
-    }
-  } else if (travelDate) {
-    const parsedDate = new Date(`${travelDate}T00:00:00Z`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(travelDate) ||
-        !Number.isFinite(parsedDate.getTime()) ||
-        parsedDate.toISOString().slice(0, 10) !== travelDate) {
-      return send(res, 400, { error: 'Ngày đi chưa hợp lệ.' });
-    }
+  const parsedDate = new Date(`${travelDate}T00:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(travelDate) ||
+      !Number.isFinite(parsedDate.getTime()) ||
+      parsedDate.toISOString().slice(0, 10) !== travelDate ||
+      travelDate < new Date().toISOString().slice(0, 10)) {
+    return send(res, 400, { error: 'Ngày khởi hành phải là ngày hợp lệ từ hôm nay trở đi.' });
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -153,19 +145,17 @@ export default async function handler(req, res) {
     const active = await tours();
     const selected = b.selected_tour_id ? active.find((t) => String(t.id) === String(b.selected_tour_id)) : null;
 
-    if (b.selected_tour_id && !selected) {
+    if (!selected) {
       return send(res, 400, { error: 'Tour được chọn không còn hợp lệ.' });
     }
-    if (bookingRequest) {
-      const listedPrice = number(selected?.price_per_person, 1, 1_000_000_000);
-      const listedDuration = Number(String(selected?.duration || '').match(/\d+/)?.[0]);
-      if (!listedPrice || !Number.isInteger(listedDuration) || listedDuration < 1 || listedDuration > 60) {
-        return send(res, 400, { error: 'Tour chưa có giá hoặc thời lượng hợp lệ để nhận yêu cầu đặt.' });
-      }
-      destination = clean(selected.destination, 100);
-      duration = listedDuration;
-      budget = listedPrice;
+    const listedPrice = number(selected.price_per_person, 1, 1_000_000_000);
+    const listedDuration = Number(String(selected.duration || '').match(/\d+/)?.[0]);
+    if (!listedPrice || !Number.isInteger(listedDuration) || listedDuration < 1 || listedDuration > 60) {
+      return send(res, 400, { error: 'Tour chưa có giá hoặc thời lượng hợp lệ để nhận yêu cầu đặt.' });
     }
+    destination = clean(selected.destination, 100);
+    duration = listedDuration;
+    budget = listedPrice;
 
     const engagement = b.engagement && typeof b.engagement === 'object' && !Array.isArray(b.engagement)
       ? b.engagement
@@ -209,16 +199,13 @@ export default async function handler(req, res) {
       });
     }
 
-    // Layer 2: same contact + destination within 24h (customer resubmits a new form).
+    // Layer 2: same contact, destination, tour, and travel date within 24h.
     const since = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString();
-    const bookingDuplicateFilter = bookingRequest
-      ? `&selected_tour_id=eq.${encodeURIComponent(selected.id)}` +
-        `&travel_date=eq.${encodeURIComponent(travelDate)}`
-      : '';
     const recentResponse = await supabase(
       `leads?contact=eq.${encodeURIComponent(contact)}` +
         (destination ? `&destination=eq.${encodeURIComponent(destination)}` : '') +
-        bookingDuplicateFilter +
+        `&selected_tour_id=eq.${encodeURIComponent(selected.id)}` +
+        `&travel_date=eq.${encodeURIComponent(travelDate)}` +
         `&created_at=gte.${encodeURIComponent(since)}` +
         `&select=lead_id,notification_status&order=created_at.desc&limit=1`,
     );
@@ -261,15 +248,13 @@ export default async function handler(req, res) {
       selected_tour_name: selected?.name || null,
       lead_status: 'NEW',
       notification_status: 'PENDING',
-      note: bookingRequest
-        ? [
-            `Yêu cầu đặt tour qua website. Giá tham khảo: ${budget} VND/người. Chờ Sales xác nhận ngày khởi hành và tình trạng chỗ.`,
-            clean(b.note, 600),
-          ].filter(Boolean).join('\n')
-        : clean(b.note, 1000) || null,
+      note: [
+        `Yêu cầu đặt tour qua website. Giá tham khảo: ${budget} VND/người. Chờ Sales xác nhận ngày khởi hành và tình trạng chỗ.`,
+        clean(b.note, 600),
+      ].filter(Boolean).join('\n'),
       consent_to_contact: true,
       source,
-      lead_source: bookingRequest ? 'booking_form' : source,
+      lead_source: 'booking_form',
       lead_score: scored.score,
       lead_level: scored.level,
       lead_priority: 'HIGH',

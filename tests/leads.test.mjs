@@ -6,7 +6,6 @@ import { createResponse, json, withEnv, withFetch } from './helpers.mjs';
 const ENV = {
   SUPABASE_URL: 'https://test.supabase.co',
   SUPABASE_SECRET_KEY: 'test-secret',
-  N8N_LEAD_WEBHOOK_URL: 'https://n8n.example.test/webhook',
   N8N_BOOKING_WEBHOOK_URL: 'https://n8n.example.test/webhook/booking',
   N8N_WEBHOOK_SECRET: 'automation-secret',
 };
@@ -14,7 +13,9 @@ const ENV = {
 function leadBody(overrides = {}) {
   return {
     name: 'Test Lead',
+    booking_request: true,
     email: 'lead@example.test',
+    travel_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     destination: 'Đà Nẵng',
     duration: 4,
     budget: 5_000_000,
@@ -34,7 +35,7 @@ function supabaseMock({
   scoreUpdates = [],
   automationUrls = [],
   failScoringColumns = false,
-  automationAck = { notification_sent: true },
+  automationAck = { sales_email_sent: true },
 }) {
   return async (input, options = {}) => {
     const url = String(input);
@@ -66,7 +67,7 @@ function supabaseMock({
       scoreUpdates.push(JSON.parse(options.body));
       return new Response(null, { status: 204 });
     }
-    if (url === ENV.N8N_LEAD_WEBHOOK_URL || url === ENV.N8N_BOOKING_WEBHOOK_URL) {
+    if (url === ENV.N8N_BOOKING_WEBHOOK_URL) {
       automationUrls.push(url);
       automationPayloads.push(JSON.parse(options.body));
       return json(automationAck);
@@ -80,7 +81,7 @@ function submit(ip, key, body) {
   return handler({ method: 'POST', headers: { 'idempotency-key': key, 'x-forwarded-for': ip }, body }, res).then(() => res);
 }
 
-test('upgrades a tracked visitor to HIGH when a consultation form is saved', async () => {
+test('upgrades a tracked visitor to HIGH when a booking request is saved', async () => {
   const insertedLeads = [];
   const visitorEvents = [];
   const scoreUpdates = [];
@@ -117,7 +118,7 @@ test('upgrades a tracked visitor to HIGH when a consultation form is saved', asy
     p_lead_id: insertedLeads[0].lead_id,
     p_form_data: {
       phone_provided: false,
-      travel_date_near: false,
+      travel_date_near: true,
       has_budget: true,
       selected_tour: true,
       party_size_multiple: true,
@@ -125,22 +126,16 @@ test('upgrades a tracked visitor to HIGH when a consultation form is saved', asy
   });
 });
 
-test('accepts a short consultation form without inventing trip details', async () => {
-  const insertedLeads = [];
-  const automationPayloads = [];
-  await withEnv(ENV, () => withFetch(supabaseMock({ insertedLeads, automationPayloads }), async () => {
-    const res = await submit('192.0.2.13', 'short-consultation', {
-      name: 'Short Form',
-      phone: '0909123456',
-      consent_to_contact: true,
-    });
-    assert.equal(res.statusCode, 201);
-    assert.equal(insertedLeads[0].destination, null);
-    assert.equal(insertedLeads[0].duration, null);
-    assert.equal(insertedLeads[0].budget, null);
-    assert.equal(insertedLeads[0].party_size, null);
-    assert.equal(automationPayloads[0].phone, '0909123456');
-  }));
+test('rejects non-booking form submissions without saving a lead', async () => {
+  const res = await withEnv(ENV, () => withFetch(async () => {
+    throw new Error('Non-booking submissions must not reach external services');
+  }, () => submit('192.0.2.13', 'consultation-not-accepted', {
+    name: 'Non-booking Request',
+    phone: '0909123456',
+    consent_to_contact: true,
+  })));
+  assert.equal(res.statusCode, 400);
+  assert.match(res.body.error, /chỉ nhận yêu cầu đặt tour/i);
 });
 
 test('persists server score, NEW status, and sends automation payload', async () => {
@@ -159,7 +154,7 @@ test('persists server score, NEW status, and sends automation payload', async ()
     assert.equal(automationPayloads[0].lead_score, 70);
     assert.equal(insertedLeads[0].score_signals.return_visit, false);
     assert.equal(automationPayloads[0].notification_status, undefined);
-    assert.deepEqual(automationUrls, [ENV.N8N_LEAD_WEBHOOK_URL]);
+    assert.deepEqual(automationUrls, [ENV.N8N_BOOKING_WEBHOOK_URL]);
   }));
 });
 
@@ -172,7 +167,7 @@ test('falls back to compatible insert when scoring columns are missing', async (
   }));
 });
 
-test('does not create a second lead for the same contact and destination within 24h', async () => {
+test('does not duplicate the same contact, tour, and date within 24h', async () => {
   const insertedLeads = [];
   const automationPayloads = [];
   const automationUrls = [];
@@ -193,11 +188,11 @@ test('does not create a second lead for the same contact and destination within 
   }));
 });
 
-test('keeps lead PENDING when n8n does not confirm delivery', async () => {
+test('keeps booking PENDING when n8n does not confirm delivery', async () => {
   const insertedLeads = [];
   const mock = async (input, options = {}) => {
     const url = String(input);
-    if (url === ENV.N8N_LEAD_WEBHOOK_URL || url === ENV.N8N_BOOKING_WEBHOOK_URL) return json({ status: 'ok' });
+    if (url === ENV.N8N_BOOKING_WEBHOOK_URL) return json({ status: 'ok' });
     return supabaseMock({ insertedLeads, automationPayloads: [] })(input, options);
   };
   await withEnv(ENV, () => withFetch(mock, async () => {
@@ -252,7 +247,7 @@ test('routes booking requests to the dedicated booking webhook', async () => {
   const departure = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const mock = async (input, options = {}) => {
     const url = String(input);
-    if (url === ENV.N8N_LEAD_WEBHOOK_URL || url === ENV.N8N_BOOKING_WEBHOOK_URL) {
+    if (url === ENV.N8N_BOOKING_WEBHOOK_URL) {
       webhookUrls.push(url);
       return json({ customer_email_sent: true, sales_email_sent: true });
     }

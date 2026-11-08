@@ -11,7 +11,6 @@ let chatConversation = [];
 let chatRequestPending = false;
 let behaviorTrackingConsent = false;
 let tourViewCount = 0;
-let bookingMode = false;
 let activeVoucherCode = '';
 try {
   activeVoucherCode = sessionStorage.getItem('vietjourney_voucher_code') || '';
@@ -94,6 +93,10 @@ function values(selector) {
   return $$(selector + ' .chip.active').map((item) => item.textContent);
 }
 
+function normalizedText(text) {
+  return text.toLocaleLowerCase('vi').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+}
+
 function setMessage(form, text, status = false) {
   const element = form.querySelector('.form-message');
   element.textContent = text;
@@ -147,7 +150,7 @@ function card(item) {
 
   const choose = document.createElement('button');
   choose.textContent = 'Đặt tour';
-  choose.onclick = () => selectTour(item, true);
+  choose.onclick = () => selectTour(item);
 
   actions.append(detail, choose);
   copy.append(actions);
@@ -218,7 +221,7 @@ function renderTours() {
   grid.replaceChildren(
     ...(filtered.length
       ? filtered.map((tour) => card(tour))
-      : [emptyState('Chưa có hành trình phù hợp với bộ lọc này. Hãy thử lựa chọn khác hoặc gửi yêu cầu để được tư vấn.')])
+      : [emptyState('Chưa có hành trình phù hợp với bộ lọc này. Hãy thử lựa chọn khác hoặc hỏi trợ lý chuyến đi.')])
   );
 }
 
@@ -304,61 +307,16 @@ function toggleSavedTour(tour) {
   renderTours();
 }
 
-function setBookingMode(enabled) {
-  bookingMode = enabled;
-  const form = $('#leadForm');
+function configureBookingForm() {
   const tripDetails = $('#tripDetails');
-  tripDetails.open = enabled;
-  $('#contactTitle').innerHTML = enabled
-    ? 'Gửi thông tin<br>đặt tour của bạn.'
-    : 'Kể tụi mình nghe<br>bạn đang mong chuyến đi thế nào.';
-  $('#contactDescription').textContent = enabled
-    ? 'Sales sẽ xác nhận ngày đi và tình trạng chỗ. Email xác nhận đặt tour sẽ được gửi sau khi Sales chốt booking.'
-    : 'Để lại vài thông tin cơ bản thôi. Đội ngũ VietJourney sẽ cùng bạn tìm phương án phù hợp.';
-  $('#contactReassurance').innerHTML = enabled
-    ? '<strong>Yêu cầu chưa giữ chỗ.</strong><br>Email xác nhận đặt tour chỉ gửi sau khi Sales xác nhận.'
-    : '<strong>Không cần chốt tour ngay.</strong><br>Cứ hỏi trước, bạn quyết định sau nhé.';
-  $('#contactHint').textContent = enabled
-    ? 'Email bắt buộc để nhận xác nhận sau khi Sales chốt booking; số điện thoại giúp Sales liên hệ.'
-    : 'Chỉ cần tên và số điện thoại. Email và thông tin chuyến đi không bắt buộc.';
-  $('#contactConsentText').textContent = enabled
-    ? 'Tôi đồng ý để VietJourney xử lý yêu cầu đặt tour và liên hệ xác nhận.'
-    : 'Tôi đồng ý để VietJourney liên hệ tư vấn về yêu cầu này.';
-  [
-    ['emailField', 'Email'],
-    ['destinationField', 'Điểm đến'],
-    ['durationField', 'Thời lượng (ngày)'],
-    ['budgetField', 'Ngân sách dự kiến/người (đồng)'],
-    ['partySizeField', 'Số người'],
-    ['travelDateField', 'Ngày dự kiến'],
-  ].forEach(([id, label]) => {
-    $(`#${id}`).firstChild.textContent = `${label} (${enabled ? 'bắt buộc' : 'tùy chọn'})`;
-  });
-  $('#leadSubmit').textContent = enabled ? 'Gửi yêu cầu đặt tour' : 'Gửi yêu cầu tư vấn';
-  $('#switchToInquiry').hidden = !enabled;
-  form.elements.email.required = enabled;
-  form.elements.phone.required = !enabled;
+  tripDetails.open = true;
   const travelDateInput = $('#travelDateField').querySelector('input');
-  travelDateInput.required = enabled;
-  form.elements.destination.required = enabled;
-  form.elements.duration.required = enabled;
-  form.elements.budget.required = enabled;
-  form.elements.party_size.required = enabled;
-  if (enabled) {
-    const today = new Date();
-    today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
-    travelDateInput.min = today.toISOString().slice(0, 10);
-  } else {
-    travelDateInput.removeAttribute('min');
-  }
-  $('#trackingConsent').hidden = enabled;
-  if (!enabled) {
-    form.elements.email.setCustomValidity('');
-    form.elements.phone.setCustomValidity('');
-  }
+  const today = new Date();
+  today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+  travelDateInput.min = today.toISOString().slice(0, 10);
 }
 
-function selectTour(tour, booking = false) {
+function selectTour(tour) {
   const form = $('#leadForm');
   $('#tripDetails').open = true;
   form.elements.selected_tour_id.value = tour.id;
@@ -367,14 +325,8 @@ function selectTour(tour, booking = false) {
   form.elements.destination.value = tour.destination || '';
   const length = duration(tour);
   if (length) form.elements.duration.value = length;
-  if (booking) {
-    form.elements.budget.value = String(Number(tour.price_per_person) || 0);
-    setBookingMode(true);
-    setMessage(form, `Đang đặt: ${tour.name}. Giá hiển thị là giá tham khảo; ngày đi và chỗ còn sẽ được Sales xác nhận.`, 'warning');
-  } else {
-    setBookingMode(false);
-    setMessage(form, `Đã chọn “${tour.name}”. Hãy nhập ngân sách dự kiến của bạn để được tư vấn.`, true);
-  }
+  form.elements.budget.value = String(Number(tour.price_per_person) || 0);
+  setMessage(form, `Đang đặt: ${tour.name}. Giá hiển thị là giá tham khảo; ngày đi và chỗ còn sẽ được Sales xác nhận.`, 'warning');
   location.hash = 'contact';
 }
 
@@ -399,7 +351,7 @@ function showDetails(tour) {
   const itinerary = Array.isArray(tour.itinerary) ? tour.itinerary : [];
   $('#dialogItinerary').replaceChildren(...(itinerary.length ? itinerary : [{
     day: 'Lịch trình',
-    title: 'Tư vấn theo nhu cầu của bạn',
+    title: 'Lịch trình tham khảo',
     activities: ['Đội ngũ VietJourney sẽ xác nhận lịch trình phù hợp trước khi bạn đặt tour.'],
   }]).map((day) => {
     const article = document.createElement('article');
@@ -436,7 +388,7 @@ function showDetails(tour) {
   $('#dialogChoose').textContent = 'Đặt tour này';
   $('#dialogChoose').onclick = () => {
     dialog.close();
-    selectTour(tour, true);
+    selectTour(tour);
   };
   dialog.showModal();
 }
@@ -479,16 +431,6 @@ behaviorTrackingField.addEventListener('change', () => {
   tourViewCount = 0;
 });
 
-const leadEmail = $('#leadForm').elements.email;
-const leadPhone = $('#leadForm').elements.phone;
-const validateLeadContact = () => {
-  const missingContact = !leadEmail.value.trim() && !leadPhone.value.trim();
-  leadEmail.setCustomValidity(missingContact ? 'Vui lòng nhập email hoặc số điện thoại.' : '');
-  leadPhone.setCustomValidity(missingContact ? 'Vui lòng nhập email hoặc số điện thoại.' : '');
-};
-leadEmail.addEventListener('input', validateLeadContact);
-leadPhone.addEventListener('input', validateLeadContact);
-
 $('#destinationSearch').addEventListener('submit', (event) => {
   event.preventDefault();
   $('#destinationFilter').value = $('#destinationQuery').value;
@@ -512,11 +454,7 @@ function continueWithPromotion(voucherCode) {
   } catch (error) {
     console.error('[app] Could not save promotion code', error);
   }
-  setBookingMode(false);
-  $('#tripDetails').open = true;
-  location.hash = 'contact';
-  $('#contact').scrollIntoView({ behavior: 'smooth' });
-  $('#leadForm').elements.phone.focus({ preventScroll: true });
+  $('#tours').scrollIntoView({ behavior: 'smooth' });
 }
 
 $('#tourSearch').addEventListener('input', () => {
@@ -540,10 +478,6 @@ function appendChatMessage(text, sender = 'bot') {
   return message;
 }
 
-function normalizedText(text) {
-  return text.toLocaleLowerCase('vi').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
-}
-
 function chatCustomerContext() {
   const form = $('#leadForm');
   const fieldValue = (name) => {
@@ -562,105 +496,17 @@ function chatCustomerContext() {
   };
 }
 
-function addChatLeadAction(question, answer) {
+function addChatLeadAction() {
   const action = document.createElement('button');
   action.type = 'button';
   action.className = 'chat-consult-link';
-  action.textContent = 'Yêu cầu tư vấn hành trình này →';
-  action.addEventListener('click', () => prefillLeadFromChat(question, answer));
+  action.textContent = 'Xem tour để đặt →';
+  action.addEventListener('click', () => {
+    location.hash = 'tours';
+    $('#tours').scrollIntoView({ behavior: 'smooth' });
+  });
   $('#chatMessages').append(action);
   $('#chatMessages').scrollTop = $('#chatMessages').scrollHeight;
-}
-
-function prefillLeadFromChat(question, answer) {
-  const form = $('#leadForm');
-  setBookingMode(false);
-  const recentMessages = chatConversation
-    .filter((item) => item.role === 'user')
-    .slice(-5)
-    .map((item) => item.text);
-  const destinationMessages = [...recentMessages].reverse();
-  const normalizedMessages = destinationMessages.map(normalizedText);
-  let matchedTour;
-  for (const text of normalizedMessages) {
-    matchedTour = tours.find((tour) => text.includes(normalizedText(tour.name))) ||
-      tours.find((tour) => text.includes(normalizedText(tour.destination)));
-    if (matchedTour) break;
-  }
-  const setIfEmpty = (fieldName, value) => {
-    const field = form.elements.namedItem(fieldName);
-    if (field && !field.value && value) field.value = value;
-  };
-
-  if (matchedTour) {
-    setIfEmpty('destination', matchedTour.destination);
-    if (normalizedMessages.some((text) => text.includes(normalizedText(matchedTour.name)))) {
-      form.elements.selected_tour_id.value = matchedTour.id;
-      form.elements.selected_tour_name.value = matchedTour.name;
-      $('#tourName').value = matchedTour.name;
-    }
-  }
-
-  for (const text of destinationMessages) {
-    const normalized = normalizedText(text);
-    const durationMatch = normalized.match(/\b(\d{1,2})\s*ngay\b/i);
-    const partyMatch = normalized.match(/\b(\d{1,2})\s*(?:nguoi|khach)\b/i);
-    setIfEmpty('duration', durationMatch?.[1]);
-    setIfEmpty('party_size', partyMatch?.[1]);
-
-    const dateMatch = text.match(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})\b/);
-    if (dateMatch && !form.elements.travel_date.value) {
-      const date = dateMatch[1].includes('/')
-        ? dateMatch[1].split('/').reverse().map((part, index) => index === 0 ? part : part.padStart(2, '0')).join('-')
-        : dateMatch[1];
-      setIfEmpty('travel_date', date);
-    }
-
-    const perPersonBudget = normalized.match(/(\d+(?:[.,]\d+)*)\s*(trieu|tr|m|vnd|dong|d)\s*(?:\/\s*(?:nguoi|khach)|moi\s*(?:nguoi|khach))/i);
-    if (perPersonBudget && !form.elements.budget.value) {
-      const rawAmount = perPersonBudget[1];
-      const unit = perPersonBudget[2];
-      const amount = /^(triệu|tr|m)$/.test(unit)
-        ? Number(rawAmount.replace(',', '.')) * 1_000_000
-        : Number(rawAmount.replace(/[.,]/g, ''));
-      if (Number.isFinite(amount) && amount > 0) {
-        setIfEmpty('budget', String(Math.round(amount)));
-        updateBudgetPreview();
-      }
-    }
-
-    for (const interest of interests) {
-      if (normalized.includes(normalizedText(interest))) {
-        const chip = [...$('#leadInterests').querySelectorAll('.chip')]
-          .find((item) => item.textContent === interest);
-        chip?.classList.add('active');
-      }
-    }
-  }
-
-  if (matchedTour) {
-    const days = Number(String(matchedTour.duration).match(/\d+/)?.[0]);
-    setIfEmpty('duration', String(days || ''));
-  }
-
-  const transcript = [
-    'Nội dung tư vấn AI (tham khảo, cần VietJourney xác nhận):',
-    `Khách hỏi: ${sanitizeText(question, 180)}`,
-    `Đề xuất AI: ${sanitizeText(answer, 600)}`,
-  ].join('\n');
-  const note = form.elements.namedItem('note');
-  const existingNote = note.value.trim();
-  note.value = [
-    existingNote ? sanitizeText(existingNote, 150) : '',
-    transcript,
-  ].filter(Boolean).join('\n\n').slice(0, 1000);
-  setMessage(form, 'Đã điền nội dung tư vấn vào form. Bạn kiểm tra thông tin, bổ sung liên hệ và đồng ý trước khi gửi nhé.', 'warning');
-  location.hash = 'contact';
-  $('#contact').scrollIntoView({ behavior: 'smooth' });
-  const missingField = ['name', 'email', 'phone', 'destination', 'duration', 'budget']
-    .map((name) => form.elements.namedItem(name))
-    .find((field) => field && !field.value);
-  (missingField || form.elements.namedItem('name')).focus({ preventScroll: true });
 }
 
 async function sendChatMessage(query) {
@@ -718,7 +564,7 @@ async function sendChatMessage(query) {
     );
     chatConversation = chatConversation.slice(-10);
     appendChatMessage(data.reply.trim());
-    addChatLeadAction(query, data.reply.trim());
+    addChatLeadAction();
     const visitor = await recordVisitorEvent('ai_used');
     showPromotion(visitor?.temperature || 'WARM', continueWithPromotion);
   } catch (error) {
@@ -740,13 +586,17 @@ async function sendChatMessage(query) {
 $('#leadForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
-  validateLeadContact();
   if (!form.reportValidity()) return;
   const payload = fieldData(form);
   payload.visitor_id = getVisitorId();
-  payload.booking_request = bookingMode;
+  payload.booking_request = true;
   payload.consent_to_contact = form.elements.consent_to_contact.checked;
   payload.interests = values('#leadInterests');
+  if (!payload.selected_tour_id) {
+    setMessage(form, 'Vui lòng chọn tour trước khi gửi yêu cầu đặt.', 'warning');
+    $('#tours').scrollIntoView({ behavior: 'smooth' });
+    return;
+  }
 
   const email = String(payload.email || '').trim();
   const phone = String(payload.phone || '').trim();
@@ -782,28 +632,16 @@ $('#leadForm').addEventListener('submit', async (event) => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Không thể gửi yêu cầu. Vui lòng thử lại.');
 
-    if (bookingMode) {
-      const emailMessage = data.notification_status === 'SENT'
-        ? ' Sales đã nhận yêu cầu; email xác nhận cho bạn sẽ được gửi sau khi Sales chốt booking.'
-        : data.notification_status === 'FAILED'
-          ? ' Yêu cầu đã lưu nhưng chưa gửi được thông báo cho Sales; hệ thống sẽ thử lại.'
-          : ' Yêu cầu đã lưu; đang chờ xác nhận thông báo tới Sales.';
-      setMessage(
-        form,
-        `Đã ghi nhận yêu cầu đặt tour. Ngày đi và tình trạng chỗ vẫn cần Sales xác nhận.${emailMessage} Mã yêu cầu: ${data.lead_id}`,
-        data.notification_status === 'SENT' ? true : 'warning',
-      );
-    } else {
-      const notificationMessage = data.notification_status === 'SENT'
-        ? ' Thông báo cho đội ngũ đã được gửi.'
-        : data.notification_status === 'FAILED'
-          ? ' n8n báo thông báo chưa gửi được; đội ngũ sẽ kiểm tra lại.'
-          : ' Yêu cầu đã lưu; hệ thống chưa nhận được xác nhận thông báo từ n8n.';
-      const messageStatus = data.notification_status === 'SENT'
-        ? true
-        : data.notification_status === 'PENDING' ? 'warning' : false;
-      setMessage(form, `Yêu cầu đã được ghi nhận.${notificationMessage} Mã Lead ID: ${data.lead_id}`, messageStatus);
-    }
+    const emailMessage = data.notification_status === 'SENT'
+      ? ' Sales đã nhận yêu cầu; email xác nhận cho bạn sẽ được gửi sau khi Sales chốt booking.'
+      : data.notification_status === 'FAILED'
+        ? ' Yêu cầu đã lưu nhưng chưa gửi được thông báo cho Sales; hệ thống sẽ thử lại.'
+        : ' Yêu cầu đã lưu; đang chờ xác nhận thông báo tới Sales.';
+    setMessage(
+      form,
+      `Đã ghi nhận yêu cầu đặt tour. Ngày đi và tình trạng chỗ vẫn cần Sales xác nhận.${emailMessage} Mã yêu cầu: ${data.lead_id}`,
+      data.notification_status === 'SENT' ? true : 'warning',
+    );
     form.reset();
     activeVoucherCode = '';
     try {
@@ -813,18 +651,12 @@ $('#leadForm').addEventListener('submit', async (event) => {
     }
     behaviorTrackingField.checked = behaviorTrackingConsent;
     $('#tourName').value = '';
-    setBookingMode(false);
     updateBudgetPreview();
   } catch (error) {
     setMessage(form, error.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.');
   } finally {
     submitButton.disabled = false;
   }
-});
-
-$('#switchToInquiry').addEventListener('click', () => {
-  setBookingMode(false);
-  setMessage($('#leadForm'), 'Bạn đang gửi yêu cầu tư vấn, chưa phải yêu cầu đặt tour.', 'warning');
 });
 
 $('.menu').onclick = (event) => {
@@ -841,6 +673,6 @@ $$('nav a').forEach((link) => {
 });
 
 chips('#leadInterests');
-setBookingMode(false);
+configureBookingForm();
 getCurrentUtm();
 loadTours();

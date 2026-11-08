@@ -2,18 +2,17 @@
 
 ## Luồng tổng thể
 
-`Website form → /api/leads → Supabase → chọn workflow n8n theo loại yêu cầu → phản hồi backend`
+`Booking form → /api/leads → Supabase → N8N_BOOKING_WEBHOOK_URL → phản hồi backend`
 
-Backend lưu lead vào Supabase trước khi gọi n8n. Yêu cầu tư vấn gọi workflow Lead Capture; yêu cầu booking gọi workflow Booking Confirmation. Nếu webhook timeout hoặc lỗi, lead vẫn được lưu với `notification_status = PENDING`; cần theo dõi và xử lý lại các lead này. Webhook được gọi đồng bộ với timeout 15 giây nên giữ workflow nhẹ và phản hồi sớm.
+Website chỉ nhận yêu cầu đặt tour. Backend lưu booking vào Supabase trước khi gọi n8n. Nếu webhook timeout hoặc lỗi, booking vẫn được lưu với `notification_status = PENDING`; cần theo dõi và xử lý lại các booking này. Webhook được gọi đồng bộ với timeout 15 giây nên giữ workflow nhẹ và phản hồi sớm.
 
-## 1. Webhook và xác thực
+## 1. Webhook booking và xác thực
 
-1. Workflow tư vấn dùng Webhook `POST`, path `travel-lead`, response mode `Using Respond to Webhook`; đặt URL production trong biến server `N8N_WEBHOOK_URL`.
-2. Workflow đặt tour dùng Webhook `POST`, path `vietjourney-booking`, response mode `Using Respond to Webhook`; đặt URL production trong `N8N_BOOKING_WEBHOOK_URL`.
-3. Hai Webhook có thể dùng chung Header Auth credential `X-Automation-Secret`, khớp giá trị `N8N_WEBHOOK_SECRET`. Không đưa URL hoặc secret lên frontend.
-4. Cả hai workflow nhận payload lead ở `body` (các cấu hình n8n có thể chuyển body thành root; kiểm tra output của Webhook node).
+1. Workflow đặt tour dùng Webhook `POST`, path `vietjourney-booking`, response mode `Using Respond to Webhook`; đặt URL production trong `N8N_BOOKING_WEBHOOK_URL`.
+2. Webhook dùng Header Auth credential `X-Automation-Secret`, khớp giá trị `N8N_WEBHOOK_SECRET`. Không đưa URL hoặc secret lên frontend.
+3. Webhook nhận payload booking ở `body` (một số cấu hình n8n có thể chuyển body thành root; kiểm tra output của Webhook node).
 
-`/api/leads` gửi các thông tin liên hệ đã được khách đồng ý cung cấp, nhu cầu, tóm tắt tư vấn AI, UTM, tour quan tâm, `lead_priority`, `lead_score`, `lead_level`, `score_signals`, `customer_segment` và `customer_traits`. `lead_priority` là mức funnel HIGH của form tư vấn; `lead_level` là score HOT/WARM/COLD. Yêu cầu từ form đặt tour có `booking_request: true`, `booking_status: "AWAITING_SALES_CONFIRMATION"`, `booking_price_per_person`, và `lead_source: "booking_form"`; backend định tuyến loại này sang `N8N_BOOKING_WEBHOOK_URL`, không gửi qua workflow tư vấn.
+`/api/leads` chỉ nhận `booking_request: true` và gửi thông tin booking đã được khách đồng ý cung cấp, UTM, tour đã chọn, `lead_score`, `lead_level`, `score_signals`, `customer_segment` và `customer_traits`. Payload có `booking_status: "AWAITING_SALES_CONFIRMATION"`, `booking_price_per_person` và `lead_source: "booking_form"`; backend chỉ gọi `N8N_BOOKING_WEBHOOK_URL`.
 
 ## 2. Phân loại nhu cầu và ưu tiên lead
 
@@ -21,8 +20,8 @@ API tính các trường này sau khi validate lead và tour. Đây là rule-bas
 
 | Tín hiệu | Điểm |
 |---|---:|
-| Gửi yêu cầu tư vấn | 35 |
-| Chọn tour cụ thể trong yêu cầu tư vấn | +20 |
+| Gửi yêu cầu booking | 35 |
+| Chọn tour cụ thể | +20 |
 | Mỗi lượt xem chi tiết tour, tối đa 3 lượt | +5 |
 | Khách quay lại website | +10 |
 
@@ -31,7 +30,7 @@ API tính các trường này sau khi validate lead và tour. Đây là rule-bas
 - `resort`: có sở thích Nghỉ dưỡng; `explorer`: có sở thích Trekking, Khám phá hoặc Thiên nhiên.
 - Một lead có thể có nhiều `customer_traits`; `customer_segment` là nhóm ưu tiên đầu tiên. Không đủ tín hiệu thì dùng `general`.
 - Tín hiệu lượt xem/quay lại do trình duyệt cung cấp nên phù hợp cho demo/ưu tiên tham khảo, không dùng làm quyết định duy nhất.
-- Funnel visitor riêng ghi nhận phiên ẩn danh: chỉ xem web = `LOW`, dùng AI thành công = `MEDIUM`, gửi form tư vấn = `HIGH`. `LOW`/`MEDIUM` chỉ được lưu trong bảng traffic, không gửi sang webhook CRM.
+- Funnel visitor riêng ghi nhận phiên ẩn danh: chỉ xem web = `LOW`, dùng AI thành công = `MEDIUM`, gửi booking = `HIGH`. `LOW`/`MEDIUM` chỉ được lưu trong bảng traffic, không gửi sang webhook CRM.
 
 Không ghi đè các trường scoring này bằng một phép tính khác trong n8n. Nếu cần mô hình AI, lưu kết quả thành trường enrichment riêng, giữ lại score rule-based để đối chiếu.
 
@@ -45,8 +44,7 @@ Thêm Google Sheets node dạng Append Row và ánh xạ tối thiểu:
 
 ## 4. Thông báo Sales và follow-up
 
-- Dùng IF node để phân tuyến lead đã gửi form theo `lead_priority = HIGH`; dùng `lead_level` HOT/WARM/COLD làm tín hiệu score bổ sung. Visitor LOW/MEDIUM chưa có thông tin liên hệ và không được gửi sang webhook lead.
-- Gửi lead đến email/Slack/Telegram nội bộ. Chỉ gửi voucher marketing cho khách qua email khi có email và consent/chính sách phù hợp; form hiện đồng ý cho mục đích liên hệ tư vấn.
+- Gửi booking đến email/Slack/Telegram nội bộ. Chỉ gửi voucher marketing cho khách qua email khi có consent/chính sách phù hợp.
 - Workflow Booking Confirmation gửi email nội bộ cho Sales khi nhận yêu cầu mới. Chỉ sau khi Sales chuyển lead sang `BOOKED`, backend gọi lại webhook với `booking_event: "sales_confirmed"` để gửi email xác nhận booking cho khách. `booking_price_per_person` là giá tham khảo từ catalog; nội dung email khách không được khẳng định các điều kiện Sales chưa xác nhận.
 - Vì webhook có thể được retry, dùng khóa `lead_id:customer` và `lead_id:sales` trong kho bền vững; lưu trạng thái từng kênh trước/sau khi gửi để retry không gửi lại kênh đã thành công. Xem [N8N_SETUP.md](./N8N_SETUP.md) về xử lý trạng thái `PROCESSING`, chạy tuần tự và giới hạn exactly-once.
 - Repository có Vercel Cron retry thông báo `PENDING`/`FAILED`, không có workflow nhắc Sales theo SLA. Nếu cần, tạo Schedule workflow riêng để kiểm tra lead chưa xử lý; chốt ngưỡng SLA và lưu trạng thái/lần nhắc để tránh gửi nhắc lặp.
@@ -90,8 +88,6 @@ Sau khi bước thông báo đã được xác nhận, Respond to Webhook trả 
 }
 ```
 
-Với lead thường, `notification_sent` phản ánh xác nhận thông báo (ví dụ Sales đã nhận); `email_sent` vẫn được hỗ trợ cho workflow cũ.
-
 Khi nhận yêu cầu booking ban đầu, workflow `vietjourney-booking` trả `sales_email_sent: true` sau khi email Sales được gửi. Khi payload có `booking_event: "sales_confirmed"`, trả `customer_email_sent: true` sau khi email khách được gửi:
 
 ```json
@@ -106,7 +102,7 @@ Backend theo dõi thông báo Sales qua `notification_status` và email khách q
 
 ## 6. Kiểm thử trước khi bật
 
-1. Gửi lead thử qua form tư vấn và form đặt tour với dữ liệu liên hệ đã được đồng ý sử dụng.
+1. Gửi booking thử qua form website với dữ liệu liên hệ đã được đồng ý sử dụng.
 2. Kiểm tra bản ghi Supabase trước: score/segment, UTM, `selected_tour_id`, `note`, `notification_status`.
 3. Với booking, xác nhận email Sales chỉ gửi khi nhận yêu cầu; email khách chỉ gửi sau khi Sales chuyển trạng thái sang `BOOKED`.
 4. Thử email không có và lỗi node; lead phải vẫn được lưu, không báo gửi thành công giả.

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="description" content="VietJourney giúp bạn khám phá tour và nhận tư vấn cho hành trình Việt Nam.">
+    <meta name="description" content="VietJourney giúp bạn khám phá và gửi yêu cầu đặt tour tại Việt Nam.">
     <title>VietJourney | Du lịch Việt Nam</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,9 +20,9 @@
         <a href="#tours">Khám phá tour</a>
         <a href="planner.html">Trợ lý chuyến đi</a>
         <a href="#how-it-works">Cách hoạt động</a>
-        <a href="#contact">Tư vấn</a>
+        <a href="#contact">Đặt tour</a>
         <a href="dashboard.html">Dashboard demo</a>
-        <a class="nav-cta" href="#contact">Gửi yêu cầu</a>
+        <a class="nav-cta" href="#contact">Gửi yêu cầu đặt tour</a>
       </nav>
     </header>
     <main id="main">
@@ -34,10 +34,10 @@
           <p>Chọn nơi bạn muốn đến, xem những hành trình đang có và để VietJourney giúp bạn lên kế hoạch vừa ý.</p>
           <div class="actions">
             <a class="button coral" href="#tours">Xem các chuyến đi <span>→</span></a>
-            <a class="button ghost" href="#contact">Nhờ tư vấn <span>♡</span></a>
+            <a class="button ghost" href="#tours">Chọn tour để đặt <span>→</span></a>
             <a class="button teal" href="planner.html">Lên lịch cùng AI <span>→</span></a>
           </div>
-          <div class="hero-proof"><span>✦ Tour trong catalog</span><i></i><span>♡ Tư vấn theo nhu cầu</span></div>
+          <div class="hero-proof"><span>✦ Tour trong catalog</span><i></i><span>♡ Gửi yêu cầu đặt tour</span></div>
         </div>
         <div class="hero-search">
           <span class="search-mark" aria-hidden="true">✦</span>
@@ -75,7 +75,7 @@
             <h2>Chọn chuyến đi bạn thích</h2>
             <p id="tourCount">Tour tham khảo; giá và lịch khởi hành cần được VietJourney xác nhận.</p>
           </div>
-          <a href="#contact" class="text-link">Chưa biết chọn? Tụi mình tư vấn nhé →</a>
+          <a href="planner.html" class="text-link">Chưa biết chọn? Khám phá cùng trợ lý chuyến đi →</a>
         </div>
         <div class="tour-tools">
           <label class="tour-search"><span aria-hidden="true">⌕</span><span class="sr-only">Tìm tour</span><input id="tourSearch" type="search" placeholder="Thử tìm Đà Nẵng, biển, trekking..." autocomplete="off"></label>
@@ -99,15 +99,15 @@
         <div class="how-steps">
           <article><span>01</span><div><h3>Khám phá</h3><p>Tìm tour theo nơi đến, ngân sách hoặc trải nghiệm bạn thích.</p></div></article>
           <article><span>02</span><div><h3>Lưu điều bạn ưng</h3><p>Nhấn trái tim để giữ lại những chuyến đi muốn xem sau.</p></div></article>
-          <article><span>03</span><div><h3>Trò chuyện với tụi mình</h3><p>Gửi nhu cầu, đội ngũ sẽ liên hệ để tư vấn rõ hơn.</p></div></article>
+          <article><span>03</span><div><h3>Gửi yêu cầu đặt tour</h3><p>Sales sẽ liên hệ xác nhận ngày khởi hành và tình trạng chỗ.</p></div></article>
         </div>
       </section>
       <section id="contact" class="lead-section">
         <div>
           <p class="eyebrow light">TỤI MÌNH LUÔN SẴN SÀNG</p>
-          <h2 id="contactTitle">Kể tụi mình nghe<br>bạn đang mong chuyến đi thế nào.</h2>
-          <p id="contactDescription">Chỉ cần tên và số điện thoại. Các thông tin chuyến đi có thể bổ sung sau.</p>
-          <div class="contact-reassurance"><span>♡</span><p id="contactReassurance"><strong>Không cần chốt tour ngay.</strong><br>Cứ hỏi trước, bạn quyết định sau nhé.</p></div>
+          <h2 id="contactTitle">Gửi thông tin<br>đặt tour của bạn.</h2>
+          <p id="contactDescription">Chọn tour và gửi thông tin chuyến đi. Sales sẽ xác nhận ngày đi, giá cuối cùng và tình trạng chỗ.</p>
+          <div class="contact-reassurance"><span>♡</span><p id="contactReassurance"><strong>Yêu cầu chưa giữ chỗ.</strong><br>Email xác nhận đặt tour sẽ được gửi sau khi Sales xác nhận.</p></div>
         </div>
         <form id="leadForm" class="lead-form" method="post" action="/api/leads">
           <input name="website" class="honeypot" tabindex="-1" autocomplete="off">
@@ -115,29 +115,28 @@
           <input name="selected_tour_name" type="hidden">
           <div class="form-grid">
             <label>Gọi bạn là gì nhỉ?<input name="name" required maxlength="120" placeholder="Tên của bạn"></label>
-            <label>Số điện thoại<input name="phone" type="tel" required maxlength="40" autocomplete="tel" placeholder="Số điện thoại để tụi mình liên hệ"></label>
-            <p id="contactHint" class="contact-hint">Đội ngũ chỉ dùng thông tin này để phản hồi yêu cầu tư vấn.</p>
+            <label>Số điện thoại (không bắt buộc)<input name="phone" type="tel" maxlength="40" autocomplete="tel" placeholder="Số điện thoại để tụi mình liên hệ"></label>
+            <p id="contactHint" class="contact-hint">Email bắt buộc để nhận xác nhận sau khi Sales chốt booking; số điện thoại giúp Sales liên hệ.</p>
           </div>
-          <details id="tripDetails" class="lead-extra">
-            <summary>Thêm thông tin chuyến đi (không bắt buộc)</summary>
+          <details id="tripDetails" class="lead-extra" open>
+            <summary>Thông tin chuyến đi</summary>
             <div class="form-grid">
-              <label id="emailField">Email (tùy chọn)<input name="email" type="email" maxlength="160" autocomplete="email" placeholder="email@example.com"></label>
+              <label id="emailField">Email (bắt buộc)<input name="email" type="email" required maxlength="160" autocomplete="email" placeholder="email@example.com"></label>
               <label>Zalo / WhatsApp (tùy chọn)<input name="zalo_phone" maxlength="40" placeholder="Nếu có"></label>
-              <label id="destinationField">Điểm đến<input name="destination" maxlength="100" placeholder="Bạn muốn đi đâu?"></label>
-              <label id="durationField">Thời lượng (ngày)<input name="duration" type="number" min="1" max="60"></label>
-              <label id="budgetField">Ngân sách dự kiến/người (đồng)<input name="budget" type="number" min="0"><small id="budgetPreview" class="field-hint">Ví dụ: 2,000,000 đồng/người.</small></label>
-              <label id="partySizeField">Số người<input name="party_size" type="number" min="1" max="30" placeholder="Số khách"></label>
-              <label id="travelDateField">Ngày dự kiến<input name="travel_date" type="date"></label>
-              <label id="selectedTourField">Tour quan tâm<input id="tourName" readonly placeholder="Chưa chọn tour"></label>
+              <label id="destinationField">Điểm đến (bắt buộc)<input name="destination" required maxlength="100" placeholder="Chọn tour để tự điền điểm đến"></label>
+              <label id="durationField">Thời lượng (ngày) (bắt buộc)<input name="duration" type="number" required min="1" max="60"></label>
+              <label id="budgetField">Ngân sách dự kiến/người (đồng) (bắt buộc)<input name="budget" type="number" required min="1"><small id="budgetPreview" class="field-hint">Giá tham khảo theo tour đã chọn.</small></label>
+              <label id="partySizeField">Số người (bắt buộc)<input name="party_size" type="number" required min="1" max="30" placeholder="Số khách"></label>
+              <label id="travelDateField">Ngày dự kiến (bắt buộc)<input name="travel_date" type="date" required></label>
+              <label id="selectedTourField">Tour đã chọn<input id="tourName" required readonly placeholder="Chưa chọn tour"></label>
             </div>
             <fieldset id="interestsField"><legend>Sở thích (tùy chọn)</legend><div id="leadInterests" class="chips"></div></fieldset>
             <label id="noteField">Lời nhắn<textarea name="note" maxlength="1000" rows="3" placeholder="Thông tin thêm nếu có..."></textarea></label>
           </details>
-          <label class="consent"><input name="consent_to_contact" type="checkbox" value="true" required> <span id="contactConsentText">Tôi đồng ý để VietJourney liên hệ tư vấn về yêu cầu này.</span></label>
-          <label id="trackingConsent" class="consent"><input name="behavior_tracking" type="checkbox" value="true"> Cho phép lưu tín hiệu xem chi tiết tour và quay lại trên trình duyệt để cá nhân hóa tư vấn (tùy chọn).</label>
+          <label class="consent"><input name="consent_to_contact" type="checkbox" value="true" required> <span id="contactConsentText">Tôi đồng ý để VietJourney xử lý yêu cầu đặt tour và liên hệ xác nhận.</span></label>
+          <label id="trackingConsent" class="consent"><input name="behavior_tracking" type="checkbox" value="true"> Cho phép lưu tín hiệu xem chi tiết tour và quay lại trên trình duyệt để cá nhân hóa gợi ý tour (tùy chọn).</label>
           <p class="field-hint">Website dùng mã ẩn danh lưu trên trình duyệt, hết hạn sau 7 ngày không truy cập, để ghi nhận lượt truy cập, nguồn UTM và việc sử dụng AI; không lưu IP hoặc nội dung chat. Tín hiệu xem tour, tương tác và quay lại chỉ ghi nhận khi bạn chọn ô trên.</p>
-          <button id="leadSubmit" class="button coral" type="submit">Gửi yêu cầu tư vấn</button>
-          <button id="switchToInquiry" class="button ghost" type="button" hidden>Chỉ muốn hỏi tư vấn</button>
+          <button id="leadSubmit" class="button coral" type="submit">Gửi yêu cầu đặt tour</button>
           <p class="form-message" aria-live="polite"></p>
         </form>
       </section>
@@ -145,10 +144,9 @@
         <p class="eyebrow">BẠN CÓ THỂ ĐANG THẮC MẮC</p>
         <h2>Một vài điều nhỏ, để bạn yên tâm hơn.</h2>
         <div class="faq-list">
-          <details><summary>Giá tour hiển thị đã bao gồm gì?</summary><p>Thông tin dịch vụ đi kèm được ghi trong chi tiết từng tour. Nếu chưa rõ phần nào, hãy gửi câu hỏi để đội ngũ tư vấn xác nhận giúp bạn.</p></details>
-          <details><summary>Mình chưa biết chính xác ngày đi thì sao?</summary><p>Không sao cả. Bạn có thể để trống ngày dự kiến trong form và trao đổi thời gian phù hợp sau.</p></details>
-          <details><summary>Gửi yêu cầu có bắt buộc phải đặt tour không?</summary><p>Không. Gửi yêu cầu chỉ giúp VietJourney hiểu nhu cầu và tư vấn; bạn tự quyết định có đặt tour hay không.</p></details>
-          <details><summary>Gửi yêu cầu đặt tour có nghĩa là đã giữ chỗ chưa?</summary><p>Chưa. Email xác nhận chỉ xác nhận VietJourney đã nhận yêu cầu; Sales sẽ liên hệ xác nhận ngày khởi hành, giá cuối cùng và tình trạng chỗ.</p></details>
+          <details><summary>Giá tour hiển thị đã bao gồm gì?</summary><p>Thông tin dịch vụ đi kèm được ghi trong chi tiết từng tour. Sales sẽ xác nhận dịch vụ và giá cuối cùng sau khi nhận yêu cầu.</p></details>
+          <details><summary>Mình chưa biết chính xác ngày đi thì sao?</summary><p>Hãy chọn ngày dự kiến gần nhất; Sales sẽ liên hệ xác nhận ngày khởi hành phù hợp trước khi chốt booking.</p></details>
+          <details><summary>Gửi yêu cầu đặt tour có nghĩa là đã giữ chỗ chưa?</summary><p>Chưa. Sales cần xác nhận ngày khởi hành, giá cuối cùng và tình trạng chỗ trước khi booking được xác nhận.</p></details>
         </div>
       </section>
     </main>
@@ -158,7 +156,7 @@
       <div>
         <a href="#tours">Tour</a>
         <a href="planner.html">Trợ lý chuyến đi</a>
-        <a href="#contact">Tư vấn chuyến đi</a>
+        <a href="#tours">Đặt tour</a>
         <a href="dashboard.html">Dashboard demo</a>
         <a href="docs/README.md">Chính sách bảo mật</a>
       </div>

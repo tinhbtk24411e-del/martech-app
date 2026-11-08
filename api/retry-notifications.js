@@ -32,7 +32,7 @@ export default async function handler(req, res) {
 
   try {
     const query = await supabase(
-      `leads?notification_status=in.(PENDING,FAILED)` +
+      `leads?lead_source=eq.booking_form&notification_status=in.(PENDING,FAILED)` +
         `&notification_attempts=lt.${MAX_ATTEMPTS}` +
         `&created_at=lt.${encodeURIComponent(cutoff)}` +
         `&order=created_at.asc&limit=${BATCH_SIZE}&select=*`,

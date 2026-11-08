@@ -31,14 +31,14 @@ export function understandCustomer({ interests = [], experienceTypes = [], budge
 export function scoreLead({ selectedTour = false, tourViews = 0, returnVisit = false } = {}) {
   const views = Math.min(3, Math.max(0, Math.trunc(Number(tourViews) || 0)));
   const signals = {
-    consultation_request: 35,
+    booking_request: 35,
     selected_tour: selectedTour ? 20 : 0,
     tour_views: views,
     return_visit: returnVisit === true,
   };
   const score = Math.min(
     100,
-    signals.consultation_request +
+    signals.booking_request +
       signals.selected_tour +
       signals.tour_views * 5 +
       (signals.return_visit ? 10 : 0),

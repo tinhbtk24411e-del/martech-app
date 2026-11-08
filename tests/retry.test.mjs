@@ -6,7 +6,6 @@ import { createResponse, json, withEnv, withFetch } from './helpers.mjs';
 const ENV = {
   SUPABASE_URL: 'https://test.supabase.co',
   SUPABASE_SECRET_KEY: 'k',
-  N8N_WEBHOOK_URL: 'https://n8n.example.test/webhook',
   N8N_BOOKING_WEBHOOK_URL: 'https://n8n.example.test/booking',
   N8N_WEBHOOK_SECRET: 's',
   CRON_SECRET: 'cron-secret',
@@ -21,7 +20,7 @@ test('retry job rejects callers without the cron secret', async () => {
 
 test('retry job claims a pending lead, re-sends it, and records SENT', async () => {
   const pending = {
-    lead_id: 'lead-pending-1', name: 'A', contact: 'a@example.test', destination: 'Hội An',
+    lead_id: 'lead-pending-1', lead_source: 'booking_form', name: 'A', contact: 'a@example.test', destination: 'Hội An',
     duration: 3, budget: 4_000_000, party_size: 2, interests: [], notification_status: 'PENDING',
     notification_attempts: 0, lead_score: 35, lead_level: 'COLD',
   };
@@ -29,16 +28,19 @@ test('retry job claims a pending lead, re-sends it, and records SENT', async () 
 
   const mock = async (input, options = {}) => {
     const url = String(input);
-    if (url.includes('notification_status=in.(PENDING,FAILED)')) return json([pending]);
+    if (url.includes('notification_status=in.(PENDING,FAILED)')) {
+      assert.match(url, /lead_source=eq\.booking_form/);
+      return json([pending]);
+    }
     if (url.includes('booking_confirmation_status=in.(PENDING,FAILED)') && !options.method) return json([]);
     if (url.includes('booking_confirmation_status=eq.PROCESSING') && !options.method) return json([]);
     if (url.includes('notification_attempts=eq.0') && options.method === 'PATCH') {
       seen.claim += 1;
       return json([{ lead_id: pending.lead_id }]);
     }
-    if (url === ENV.N8N_WEBHOOK_URL) {
+    if (url === ENV.N8N_BOOKING_WEBHOOK_URL) {
       seen.webhook += 1;
-      return json({ notification_sent: true });
+      return json({ sales_email_sent: true });
     }
     if (options.method === 'PATCH') {
       seen.statusUpdates.push(JSON.parse(options.body));
