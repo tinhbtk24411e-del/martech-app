@@ -7,6 +7,7 @@ const ENV = {
   SUPABASE_URL: 'https://t.supabase.co', SUPABASE_SECRET_KEY: 'k',
   N8N_NURTURE_WEBHOOK_URL: 'https://n8n.test/nurture', N8N_WEBHOOK_SECRET: 's',
   NURTURE_SECRET: 'nsec', APP_ORIGIN: 'https://app.test',
+  VERCEL_URL: 'martech-8g21wc5yx-tinhbui.vercel.app',
 };
 
 const body = (over = {}) => ({
@@ -14,10 +15,18 @@ const body = (over = {}) => ({
   budget: 3000000, party_size: 2, plan_summary: 'Ngày 1: Hồ Xuân Hương', consent_to_contact: true, ...over,
 });
 
-function run(ip, payload, mock) {
+function run(ip, payload, mock, origin) {
   const res = createResponse();
   return withEnv(ENV, () => withFetch(mock, () =>
-    handler({ method: 'POST', headers: { 'x-forwarded-for': ip, 'content-type': 'application/json' }, body: payload }, res)))
+    handler({
+      method: 'POST',
+      headers: {
+        'x-forwarded-for': ip,
+        'content-type': 'application/json',
+        ...(origin ? { origin } : {}),
+      },
+      body: payload,
+    }, res)))
     .then(() => res);
 }
 
@@ -60,6 +69,20 @@ test('valid request creates a COLD nurture lead and delivers the itinerary', asy
   assert.equal(m.webhookPayloads[0].step, 0);
   assert.match(m.webhookPayloads[0].plan_summary, /Hồ Xuân Hương/);
   assert.equal(m.patches.at(-1).notification_status, 'SENT');
+});
+
+test('allows the current Vercel deployment origin but rejects other origins', async () => {
+  const inserted = [];
+  const m = mockFor({ inserted });
+  const deploymentOrigin = `https://${ENV.VERCEL_URL}`;
+  const accepted = await run('10.1.0.6', body(), m.fn, deploymentOrigin);
+  assert.equal(accepted.statusCode, 201);
+  assert.equal(accepted.headers['access-control-allow-origin'], deploymentOrigin);
+
+  const rejected = await run('10.1.0.7', body(), async () => {
+    throw new Error('must not reach the database');
+  }, 'https://attacker.example');
+  assert.equal(rejected.statusCode, 403);
 });
 
 test('missing consent is rejected before touching the database', async () => {

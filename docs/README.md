@@ -19,7 +19,7 @@ Mở [Dashboard KPI](../dashboard.html) để xem funnel visitor/booking thực 
 
 ## Deploy Vercel
 
-Đẩy repository lên Git, import vào Vercel, đặt toàn bộ variables trong Project Settings → Environment Variables, rồi deploy. Dùng `APP_ORIGIN` là URL production. Chạy `docs/supabase-schema.sql` để cập nhật schema visitor funnel trước khi dùng dashboard KPI.
+Đẩy repository lên Git, import vào Vercel, đặt toàn bộ variables trong Project Settings → Environment Variables, rồi deploy. Dùng `APP_ORIGIN` là URL production; API cũng chấp nhận domain của deployment hiện tại do Vercel cung cấp để các preview deployment hoạt động. Chạy `docs/supabase-schema.sql` để cập nhật schema visitor funnel trước khi dùng dashboard KPI.
 
 ## Giới hạn vận hành
 
