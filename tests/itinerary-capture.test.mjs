@@ -53,6 +53,7 @@ test('valid request creates a COLD nurture lead and delivers the itinerary', asy
   assert.equal(res.body.notification_status, 'SENT');
   assert.equal(inserted[0].care_priority, 'COLD');
   assert.equal(inserted[0].lead_source, 'itinerary_capture');
+  assert.match(inserted[0].request_id, /^[0-9a-f-]{36}$/i);
   assert.equal(inserted[0].contact, 'lan@example.test', 'email is normalised to lowercase');
   assert.equal(inserted[0].nurture_step, 0);
   assert.equal(m.webhookPayloads[0].action, 'itinerary_delivery');

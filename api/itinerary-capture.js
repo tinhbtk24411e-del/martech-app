@@ -49,8 +49,11 @@ export default async function handler(req, res) {
     const understanding = understandCustomer({ interests: [], experienceTypes: [], budget });
     const care = careTier({ bookingRequest: false, selectedTourId: null });
 
+    // `request_id` is required by the shared leads schema. A planner capture is
+    // its own request, so generate it alongside the lead id before persistence.
     const row = {
       lead_id: crypto.randomUUID(),
+      request_id: crypto.randomUUID(),
       name,
       contact: email,
       email,
