@@ -678,10 +678,10 @@ $('#leadForm').addEventListener('submit', async (event) => {
     if (!response.ok) throw new Error(data.error || 'Không thể gửi yêu cầu. Vui lòng thử lại.');
 
     const emailMessage = data.notification_status === 'SENT'
-      ? ' Sales đã nhận yêu cầu; email xác nhận cho bạn sẽ được gửi sau khi Sales chốt booking.'
+      ? ' Email xác nhận đã nhận yêu cầu đã được gửi cho bạn; Sales cũng đã nhận thông báo. Email xác nhận booking sẽ gửi sau khi Sales chốt.'
       : data.notification_status === 'FAILED'
-        ? ' Yêu cầu đã lưu nhưng chưa gửi được thông báo cho Sales; hệ thống sẽ thử lại.'
-        : ' Yêu cầu đã lưu; đang chờ xác nhận thông báo tới Sales.';
+        ? ' Yêu cầu đã lưu nhưng có email thông báo chưa gửi được; hệ thống sẽ thử lại.'
+        : ' Yêu cầu đã lưu; hệ thống đang gửi email cho bạn và thông báo tới Sales.';
     setMessage(
       form,
       `Đã ghi nhận yêu cầu đặt tour. Ngày đi và tình trạng chỗ vẫn cần Sales xác nhận.${emailMessage} Mã yêu cầu: ${data.lead_id}`,

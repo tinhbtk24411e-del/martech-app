@@ -35,7 +35,7 @@ function supabaseMock({
   scoreUpdates = [],
   automationUrls = [],
   failScoringColumns = false,
-  automationAck = { sales_email_sent: true },
+  automationAck = { sales_email_sent: true, customer_request_email_sent: true },
   visitorScore = { score: 45, temperature: 'WARM', signals: { phone_provided: true } },
 }) {
   return async (input, options = {}) => {
@@ -227,12 +227,28 @@ test('keeps booking PENDING when n8n does not confirm delivery', async () => {
   }));
 });
 
-test('stores booking details, notifies Sales, and defers the customer confirmation email', async () => {
+test('keeps booking notification pending until both Sales and customer request emails are acknowledged', async () => {
+  const insertedLeads = [];
+  const mock = async (input, options = {}) => {
+    const url = String(input);
+    if (url === ENV.N8N_BOOKING_WEBHOOK_URL) {
+      return json({ sales_email_sent: true, customer_request_email_sent: false });
+    }
+    return supabaseMock({ insertedLeads, automationPayloads: [] })(input, options);
+  };
+  await withEnv(ENV, () => withFetch(mock, async () => {
+    const res = await submit('192.0.2.45', 'request-email-failed', leadBody());
+    assert.equal(res.statusCode, 201);
+    assert.equal(res.body.notification_status, 'FAILED');
+  }));
+});
+
+test('stores booking details and sends request emails to the customer and Sales', async () => {
   const insertedLeads = [];
   const automationPayloads = [];
   const automationUrls = [];
   const departure = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const ack = { sales_email_sent: true };
+  const ack = { sales_email_sent: true, customer_request_email_sent: true };
   await withEnv(ENV, () => withFetch(supabaseMock({
     insertedLeads,
     automationPayloads,
@@ -260,6 +276,7 @@ test('stores booking details, notifies Sales, and defers the customer confirmati
     assert.equal(automationPayloads[0].booking_status, 'AWAITING_SALES_CONFIRMATION');
     assert.equal(automationPayloads[0].booking_price_per_person, 7_600_000);
     assert.equal(automationPayloads[0].customer_email_confirmation_required, false);
+    assert.equal(automationPayloads[0].customer_booking_request_email_required, true);
     assert.equal(automationPayloads[0].sales_email_notification_required, true);
     assert.equal(automationPayloads[0].booking_event, undefined);
     assert.deepEqual(automationUrls, [ENV.N8N_BOOKING_WEBHOOK_URL]);
@@ -274,7 +291,7 @@ test('routes booking requests to the dedicated booking webhook', async () => {
     const url = String(input);
     if (url === ENV.N8N_BOOKING_WEBHOOK_URL) {
       webhookUrls.push(url);
-      return json({ customer_email_sent: true, sales_email_sent: true });
+      return json({ sales_email_sent: true, customer_request_email_sent: true });
     }
     return supabaseMock({ insertedLeads, automationPayloads: [] })(input, options);
   };

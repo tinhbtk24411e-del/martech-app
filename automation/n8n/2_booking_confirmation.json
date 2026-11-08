@@ -422,6 +422,232 @@
     },
     {
       "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "4LzpONfKZBVArGKg",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "keyValue": "={{ String($('Normalize Payload').first().json.lead_id).trim() + ':customer-request' }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "eaa7ce1c-cab4-45ca-9105-8acbaf136d1c",
+      "name": "Data Table - Get Request Email Status",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        3824,
+        1760
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "92bc86cc-5793-4f2e-bec4-b9a93c4a0fe7",
+              "leftValue": "={{ String($json.status ?? '').trim() }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "SENT"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4d10ad1c-1730-4fb9-80a4-d8791417de44",
+      "name": "IF - Request email already SENT",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4032,
+        1760
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"sales_email_sent\": true,\n  \"customer_request_email_sent\": true\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "91c1038e-646a-43d5-9696-405cd8b56c47",
+      "name": "Respond - Request emails already sent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        4336,
+        1632
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\\"/g, '&quot;').replace(/'/g, '&#39;');\nconst d = $('Normalize Payload').first().json;\nconst to = $('Resolve Customer Email').first().json.customer_email;\nconst name = String(d.name ?? d.customer_name ?? '').trim();\nconst tour = String(d.selected_tour_name ?? d.tour_name ?? '').trim();\nconst destination = String(d.destination ?? '').trim();\nconst date = String(d.travel_date ?? '').trim();\nconst title = 'VietJourney đã nhận yêu cầu đặt tour của bạn';\nconst intro = `Xin chào${name ? ` ${name}` : ''}, chúng tôi đã nhận được yêu cầu đặt tour của bạn. Đội ngũ tư vấn sẽ liên hệ để xác nhận tình trạng chỗ và thông tin chuyến đi.`;\nconst rows = [['Tour', tour], ['Điểm đến', destination], ['Ngày đi yêu cầu', date], ['Mã yêu cầu', d.lead_id]].filter(([, value]) => value);\nconst htmlRows = rows.map(([label, value]) => `<tr><td style=\\\"padding:6px;border:1px solid #ddd\\\">${esc(label)}</td><td style=\\\"padding:6px;border:1px solid #ddd\\\">${esc(value)}</td></tr>`).join('');\nconst html = `<div style=\\\"font-family:Arial,sans-serif;color:#222\\\"><h2>${esc(title)}</h2><p>${esc(intro)}</p><table style=\\\"border-collapse:collapse\\\">${htmlRows}</table><p>Email này xác nhận đã nhận yêu cầu, chưa phải xác nhận booking hoặc giữ chỗ.</p></div>`;\nconst text = `${title}\\n\\n${intro}\\n\\n${rows.map(([label, value]) => `${label}: ${value}`).join('\\n')}\\n\\nEmail này xác nhận đã nhận yêu cầu, chưa phải xác nhận booking hoặc giữ chỗ.`;\nreturn [{ json: { email_to: to, email_subject: '[VietJourney] Đã nhận yêu cầu đặt tour', email_html: html, email_text: text } }];"
+      },
+      "id": "b38c5fc4-5c53-47dd-a950-b1d9e4805a46",
+      "name": "Build Booking Request Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4256,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email_to }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "f29d72ad-ecb7-4e97-8c85-2aca9900a4b2",
+      "name": "Send Email - Acknowledge Booking Request",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        4480,
+        1888
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "w6BEx1Rwhk9O2xtX",
+          "name": "Gmail account 34"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "4LzpONfKZBVArGKg",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "keyValue": "={{ String($('Normalize Payload').first().json.lead_id).trim() + ':customer-request' }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "={{ String($('Normalize Payload').first().json.lead_id).trim() + ':customer-request' }}",
+            "status": "SENT",
+            "sent_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "sent_at",
+              "displayName": "sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "d7584f90-88c8-4efb-96ee-945b2671f31d",
+      "name": "Data Table - Mark Request Email SENT",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        4704,
+        1888
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"sales_email_sent\": true,\n  \"customer_request_email_sent\": false\n}",
+        "options": {
+          "responseCode": 502
+        }
+      },
+      "id": "a8f41110-6fa3-4bdb-b855-18d24d61f721",
+      "name": "Respond - Request email failed (502)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        4736,
+        2096
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"sales_email_sent\": true,\n  \"customer_request_email_sent\": true\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "b7306a6b-e490-49c3-abf8-41d0695b0784",
+      "name": "Respond - Request emails sent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        4928,
+        1888
+      ]
+    },
+    {
+      "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": true,
@@ -466,8 +692,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
       "position": [
-        3952,
-        1632
+        4736,
+        2240
       ]
     },
     {
@@ -804,7 +1030,7 @@
       "main": [
         [
           {
-            "node": "Respond - Sales already sent (true)",
+            "node": "Data Table - Get Request Email Status",
             "type": "main",
             "index": 0
           }
@@ -851,7 +1077,76 @@
       "main": [
         [
           {
-            "node": "Respond - Sales email sent (true)",
+            "node": "Data Table - Get Request Email Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Table - Get Request Email Status": {
+      "main": [
+        [
+          {
+            "node": "IF - Request email already SENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Request email already SENT": {
+      "main": [
+        [
+          {
+            "node": "Respond - Request emails already sent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Booking Request Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Booking Request Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email - Acknowledge Booking Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email - Acknowledge Booking Request": {
+      "main": [
+        [
+          {
+            "node": "Data Table - Mark Request Email SENT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Request email failed (502)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Table - Mark Request Email SENT": {
+      "main": [
+        [
+          {
+            "node": "Respond - Request emails sent",
             "type": "main",
             "index": 0
           }

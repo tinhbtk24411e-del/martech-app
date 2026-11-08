@@ -40,7 +40,7 @@ test('retry job claims a pending lead, re-sends it, and records SENT', async () 
     }
     if (url === ENV.N8N_BOOKING_WEBHOOK_URL) {
       seen.webhook += 1;
-      return json({ sales_email_sent: true });
+      return json({ sales_email_sent: true, customer_request_email_sent: true });
     }
     if (options.method === 'PATCH') {
       seen.statusUpdates.push(JSON.parse(options.body));
