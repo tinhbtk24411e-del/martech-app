@@ -26,7 +26,7 @@ Website hiện chỉ nhận yêu cầu đặt tour. Backend lưu booking vào Su
 
 ## Lịch retry và SLA
 
-Repository đã có Vercel Cron gọi `GET /api/retry-notifications` mỗi ngày để retry thông báo booking `PENDING`/`FAILED` và email xác nhận sau booking; đây không phải workflow nhắc Sales theo SLA. Nếu cần nhắc booking chưa xử lý, tạo một **Schedule Trigger workflow riêng** lọc lead `NEW` quá ngưỡng SLA, gửi nhắc Sales và lưu dấu lần nhắc/trạng thái xử lý để tránh nhắc lặp. Chốt ngưỡng SLA và kênh thông báo trước khi bật workflow này.
+Repository đã có hai Vercel Cron hằng ngày: `GET /api/nurture` lúc 02:00 UTC để chạy chuỗi COLD/WARM đúng ngày, và `GET /api/retry-notifications` lúc 03:00 UTC để retry thông báo booking `PENDING`/`FAILED` cùng email xác nhận sau booking. Vercel tự gửi `Authorization: Bearer CRON_SECRET` khi biến môi trường này được đặt. Đây không phải workflow nhắc Sales theo SLA. Nếu cần nhắc booking chưa xử lý, tạo một **Schedule Trigger workflow riêng** lọc lead `NEW` quá ngưỡng SLA, gửi nhắc Sales và lưu dấu lần nhắc/trạng thái xử lý để tránh nhắc lặp. Chốt ngưỡng SLA và kênh thông báo trước khi bật workflow này.
 
 Chi tiết payload, mapping và kiểm thử: [n8n-workflow.md](./n8n-workflow.md). Dùng n8n credentials cho Google Sheets và email; không đặt credential trong Code node hoặc payload.
 

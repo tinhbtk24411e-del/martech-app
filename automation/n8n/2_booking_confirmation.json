@@ -699,7 +699,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Giữ đủ trường mà Google Sheets map. Khi Sales xác nhận, backend gửi lại toàn bộ lead,\n// nên mọi ô vẫn có giá trị và không bị ghi đè thành rỗng.\nconst d = $('Normalize Payload').first().json;\nconst br = (d.booking_request && typeof d.booking_request === 'object' && !Array.isArray(d.booking_request)) ? d.booking_request : {};\nconst flat = (v) => {\n  if (v === undefined || v === null) return '';\n  if (Array.isArray(v)) return v.map(x => (x && typeof x === 'object') ? JSON.stringify(x) : String(x)).join(', ');\n  if (typeof v === 'object') return JSON.stringify(v);\n  return String(v);\n};\nconst cap = (v, n = 500) => { const s = flat(v).trim(); return s.length > n ? s.slice(0, n) : s; };\nconst pick = (...vals) => { for (const v of vals) { if (v !== undefined && v !== null && flat(v).trim() !== '') return v; } return ''; };\n\nconst confirmed = String(d.booking_event ?? '').trim() === 'sales_confirmed';\nconst now = new Date().toISOString();\nconst row = {\n  lead_id: cap(d.lead_id, 200),\n  created_at: cap(pick(d.created_at, now), 40),\n  name: cap(pick(d.name, d.customer_name, br.name), 200),\n  email: cap(pick(d.email, d.customer_email, br.email, br.customer_email), 254),\n  phone: cap(pick(d.phone, d.customer_phone, br.phone), 50),\n  destination: cap(pick(br.destination, d.destination)),\n  travel_date: cap(pick(br.travel_date, d.travel_date)),\n  budget: cap(pick(d.budget, d.booking_price_per_person), 40),\n  party_size: cap(pick(br.party_size, d.party_size), 10),\n  selected_tour_name: cap(pick(br.tour_name, br.selected_tour_name, d.selected_tour_name, d.tour_name)),\n  interests: cap(pick(d.interests), 300),\n  note: cap(pick(d.note), 1000),\n  consent_to_contact: cap(pick(d.consent_to_contact), 10),\n  lead_score: cap(pick(d.lead_score), 10),\n  lead_level: cap(pick(d.lead_level), 20),\n  lead_priority: cap(pick(d.lead_priority), 20),\n  care_priority: cap(pick(d.care_priority), 20),\n  customer_segment: cap(pick(d.customer_segment), 40),\n  customer_traits: cap(pick(d.customer_traits), 200),\n  source: cap(pick(d.source)),\n  utm_source: cap(pick(d.utm_source)),\n  utm_medium: cap(pick(d.utm_medium)),\n  utm_campaign: cap(pick(d.utm_campaign)),\n  booking_status: confirmed ? 'SALES_CONFIRMED' : 'REQUESTED',\n  booking_event: cap(pick(d.booking_event, 'booking_request'), 100),\n  requested_at: cap(pick(confirmed ? d.requested_at : now, d.created_at, now), 40),\n  confirmed_at: confirmed ? now : '',\n  updated_at: now,\n};\nreturn [{ json: row }];\n"
+        "jsCode": "\n// Chỉ lưu thông tin khách + thông tin booking cơ bản (không lưu toàn bộ booking_request).\n// Trường rỗng bị bỏ để lần cập nhật sau (sales_confirmed) không xóa dữ liệu đã có.\nconst d = $('Normalize Payload').first().json;\nconst br = (d.booking_request && typeof d.booking_request === 'object' && !Array.isArray(d.booking_request)) ? d.booking_request : {};\nconst flat = (v) => {\n  if (v === undefined || v === null) return '';\n  if (Array.isArray(v)) return v.map(x => (x && typeof x === 'object') ? JSON.stringify(x) : String(x)).join(', ');\n  if (typeof v === 'object') return JSON.stringify(v);\n  return String(v);\n};\nconst cap = (v, n = 500) => { const s = flat(v).trim(); return s.length > n ? s.slice(0, n) : s; };\nconst pick = (...vals) => { for (const v of vals) { if (v !== undefined && v !== null && flat(v).trim() !== '') return v; } return ''; };\n\nconst confirmed = String(d.booking_event ?? '').trim() === 'sales_confirmed';\nconst now = new Date().toISOString();\nconst row = {\n  lead_id: cap(d.lead_id, 200),\n  name: cap(pick(d.name, d.customer_name, br.name), 200),\n  email: cap(pick(d.email, d.customer_email, br.email, br.customer_email), 254),\n  phone: cap(pick(d.phone, d.customer_phone, br.phone), 50),\n  tour_name: cap(pick(br.tour_name, br.selected_tour_name, d.selected_tour_name, d.tour_name)),\n  destination: cap(pick(br.destination, d.destination)),\n  travel_date: cap(pick(br.travel_date, d.travel_date)),\n  party_size: cap(pick(br.party_size, d.party_size)),\n  booking_status: confirmed ? 'SALES_CONFIRMED' : 'REQUESTED',\n  booking_event: cap(pick(d.booking_event, 'booking_request'), 100),\n  requested_at: confirmed ? '' : now,\n  confirmed_at: confirmed ? now : '',\n  updated_at: now,\n  lead_priority: cap(d.lead_priority), lead_level: cap(d.lead_level), source: cap(d.source),\n  utm_source: cap(d.utm_source), utm_medium: cap(d.utm_medium), utm_campaign: cap(d.utm_campaign)\n};\nreturn [{ json: Object.fromEntries(Object.entries(row).filter(([, v]) => v !== '')) }];\n"
       },
       "id": "89c144f4-9acd-4d4e-a3ad-30370c79be4d",
       "name": "Build Booking Row",
@@ -747,13 +747,7 @@
             "utm_medium": "={{ $json.utm_medium }}",
             "utm_campaign": "={{ $json.utm_campaign }}",
             "note": "={{ $json.note }}",
-            "consent_to_contact": "={{ $json.consent_to_contact }}",
-            "booking_status": "={{ $json.booking_status }}",
-            "booking_event": "={{ $json.booking_event }}",
-            "requested_at": "={{ $json.requested_at }}",
-            "confirmed_at": "={{ $json.confirmed_at }}",
-            "updated_at": "={{ $json.updated_at }}",
-            "care_priority": "={{ $json.care_priority }}"
+            "consent_to_contact": "={{ $json.consent_to_contact }}"
           },
           "matchingColumns": [
             "lead_id"
@@ -1000,72 +994,6 @@
               "readOnly": false,
               "removed": false,
               "canBeUsedToMatch": true
-            },
-            {
-              "id": "booking_status",
-              "displayName": "booking_status",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": false,
-              "canBeUsedToMatch": false
-            },
-            {
-              "id": "booking_event",
-              "displayName": "booking_event",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": false,
-              "canBeUsedToMatch": false
-            },
-            {
-              "id": "requested_at",
-              "displayName": "requested_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": false,
-              "canBeUsedToMatch": false
-            },
-            {
-              "id": "confirmed_at",
-              "displayName": "confirmed_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": false,
-              "canBeUsedToMatch": false
-            },
-            {
-              "id": "updated_at",
-              "displayName": "updated_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": false,
-              "canBeUsedToMatch": false
-            },
-            {
-              "id": "care_priority",
-              "displayName": "care_priority",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": false,
-              "canBeUsedToMatch": false
             }
           ],
           "attemptToConvertTypes": false,

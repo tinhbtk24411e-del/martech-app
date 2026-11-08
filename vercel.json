@@ -11,6 +11,7 @@
     }
   ],
   "crons": [
+    { "path": "/api/nurture", "schedule": "0 2 * * *" },
     { "path": "/api/retry-notifications", "schedule": "0 3 * * *" }
   ]
 }

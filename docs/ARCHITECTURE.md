@@ -20,7 +20,7 @@
 
 Website → `api/leads.js` → Supabase (`leads`) → `lib/_notify.js` → n8n webhook → Gmail (khách, sales) → n8n trả `notification_sent` → backend ghi `notification_status`.
 
-Retry: `api/retry-notifications.js` gửi lại lead `PENDING`/`FAILED` (Vercel Cron).
+Nurture & retry: Vercel Cron gọi `api/nurture.js` mỗi ngày để gửi bước nuôi dưỡng đến hạn, sau đó gọi `api/retry-notifications.js` để gửi lại thông báo booking hoặc email xác nhận đang `PENDING`/`FAILED`.
 
 Sales: `api/lead-status.js` chuyển NEW → CONTACTED → QUOTED → BOOKED/LOST, kiểm tra luật chuyển trạng thái.
 
@@ -28,8 +28,8 @@ Sales: `api/lead-status.js` chuyển NEW → CONTACTED → QUOTED → BOOKED/LOS
 
 ## Hai thang điểm, hai mục đích
 
-- `lead_score` / `lead_level` (HOT/WARM/COLD theo điểm): đo mức **tương tác**. Xem `lib/_scoring.js: scoreLead()`.
-- `care_priority` (HOT/WARM/COLD theo ý định): quyết định **thứ tự chăm sóc**. Xem `lib/_scoring.js: careTier()`.
+- `lead_score` / `lead_level` (HOT/WARM/COLD theo điểm): đo **mức tương tác và độ đầy đủ thông tin**, chỉ dùng để đọc chất lượng lead.
+- `care_priority` (HOT/WARM/COLD theo ý định): quyết định **thứ tự chăm sóc** — đây là nguồn chân lý cho automation. Xem `lib/_scoring.js: careTier()`.
 
 Hai cột dùng cùng nhãn nhưng khác nghĩa. Khi trình bày, luôn nói rõ điều này.
 
@@ -58,5 +58,5 @@ Chỉ áp dụng cho lead WARM và COLD còn ở trạng thái NEW, có consent,
 ## Giới hạn hiện tại (ghi rõ khi bảo vệ)
 
 - Lead WARM hiện chưa có nguồn: form tư vấn đã bỏ, và đặt tour luôn là HOT. Chỉ lead COLD đến từ lịch trình qua email.
-- Workflow n8n trong `automation/n8n/` vẫn rẽ nhánh theo `selected_tour_id`, chưa rẽ theo `care_priority`.
+- Chưa có bằng chứng gửi/nhận email bằng mailbox thật hoặc Google Sheets production. Cần chạy checklist trong `automation/n8n/README.md` trước khi demo chính thức.
 - Chưa có Google Sheets, Schedule nhắc SLA, chuỗi chăm sóc, và voucher.
