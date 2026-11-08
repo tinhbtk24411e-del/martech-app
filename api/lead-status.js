@@ -88,7 +88,7 @@ export default async function handler(req, res) {
       });
     }
     if (claimed === false) {
-      return send(res, 200, {
+      return send(res, 202, {
         lead_id: leadId,
         lead_status: nextStatus,
         booking_confirmation_status: 'PENDING',
@@ -98,6 +98,17 @@ export default async function handler(req, res) {
     const confirmationStatus = await deliverBookingConfirmation({ ...current, ...claimed });
     const recorded = await updateBookingConfirmationStatus(leadId, confirmationStatus);
     const finalStatus = recorded ? confirmationStatus : 'PENDING';
+
+    if (finalStatus !== 'SENT') {
+      return send(res, finalStatus === 'FAILED' ? 502 : 503, {
+        error: finalStatus === 'FAILED'
+          ? 'Booking đã được xác nhận nhưng email cho khách chưa gửi được.'
+          : 'Booking đã được xác nhận nhưng chưa nhận được xác nhận gửi email. Hệ thống sẽ thử lại.',
+        lead_id: leadId,
+        lead_status: nextStatus,
+        booking_confirmation_status: finalStatus,
+      });
+    }
 
     return send(res, 200, {
       lead_id: leadId,
