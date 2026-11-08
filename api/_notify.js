@@ -51,7 +51,7 @@ export async function deliverToAutomation(lead) {
   const bookingRequest = lead.lead_source === 'booking_form';
   const url = bookingRequest
     ? process.env.N8N_BOOKING_WEBHOOK_URL
-    : process.env.N8N_WEBHOOK_URL;
+    : process.env.N8N_LEAD_WEBHOOK_URL || process.env.N8N_WEBHOOK_URL;
   if (!url) {
     console.error('[notify] Automation webhook is not configured', {
       workflow: bookingRequest ? 'booking' : 'lead',

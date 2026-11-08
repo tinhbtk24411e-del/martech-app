@@ -6,7 +6,7 @@ import { createResponse, json, withEnv, withFetch } from './helpers.mjs';
 const ENV = {
   SUPABASE_URL: 'https://test.supabase.co',
   SUPABASE_SECRET_KEY: 'test-secret',
-  N8N_WEBHOOK_URL: 'https://n8n.example.test/webhook',
+  N8N_LEAD_WEBHOOK_URL: 'https://n8n.example.test/webhook',
   N8N_BOOKING_WEBHOOK_URL: 'https://n8n.example.test/webhook/booking',
   N8N_WEBHOOK_SECRET: 'automation-secret',
 };
@@ -66,7 +66,7 @@ function supabaseMock({
       scoreUpdates.push(JSON.parse(options.body));
       return new Response(null, { status: 204 });
     }
-    if (url === ENV.N8N_WEBHOOK_URL || url === ENV.N8N_BOOKING_WEBHOOK_URL) {
+    if (url === ENV.N8N_LEAD_WEBHOOK_URL || url === ENV.N8N_BOOKING_WEBHOOK_URL) {
       automationUrls.push(url);
       automationPayloads.push(JSON.parse(options.body));
       return json(automationAck);
@@ -159,7 +159,7 @@ test('persists server score, NEW status, and sends automation payload', async ()
     assert.equal(automationPayloads[0].lead_score, 70);
     assert.equal(insertedLeads[0].score_signals.return_visit, false);
     assert.equal(automationPayloads[0].notification_status, undefined);
-    assert.deepEqual(automationUrls, [ENV.N8N_WEBHOOK_URL]);
+    assert.deepEqual(automationUrls, [ENV.N8N_LEAD_WEBHOOK_URL]);
   }));
 });
 
@@ -197,7 +197,7 @@ test('keeps lead PENDING when n8n does not confirm delivery', async () => {
   const insertedLeads = [];
   const mock = async (input, options = {}) => {
     const url = String(input);
-    if (url === ENV.N8N_WEBHOOK_URL || url === ENV.N8N_BOOKING_WEBHOOK_URL) return json({ status: 'ok' });
+    if (url === ENV.N8N_LEAD_WEBHOOK_URL || url === ENV.N8N_BOOKING_WEBHOOK_URL) return json({ status: 'ok' });
     return supabaseMock({ insertedLeads, automationPayloads: [] })(input, options);
   };
   await withEnv(ENV, () => withFetch(mock, async () => {
@@ -252,7 +252,7 @@ test('routes booking requests to the dedicated booking webhook', async () => {
   const departure = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const mock = async (input, options = {}) => {
     const url = String(input);
-    if (url === ENV.N8N_WEBHOOK_URL || url === ENV.N8N_BOOKING_WEBHOOK_URL) {
+    if (url === ENV.N8N_LEAD_WEBHOOK_URL || url === ENV.N8N_BOOKING_WEBHOOK_URL) {
       webhookUrls.push(url);
       return json({ customer_email_sent: true, sales_email_sent: true });
     }
