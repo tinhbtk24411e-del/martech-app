@@ -46,7 +46,7 @@ async function notifyAndRecord(lead) {
   return recorded ? status : 'PENDING';
 }
 
-async function recordConsultationVisitor(visitorId, leadId, utm, formData = {}) {
+async function recordBookingVisitor(visitorId, leadId, utm, formData = {}) {
   if (!visitorId) return null;
 
   try {
@@ -54,7 +54,7 @@ async function recordConsultationVisitor(visitorId, leadId, utm, formData = {}) 
       method: 'POST',
       body: JSON.stringify({
         p_visitor_id: visitorId,
-        p_event: 'consultation_submitted',
+        p_event: 'booking_submitted',
         p_utm_source: utm.utm_source || 'direct',
         p_utm_medium: utm.utm_medium || null,
         p_utm_campaign: utm.utm_campaign || null,
@@ -110,6 +110,7 @@ export default async function handler(req, res) {
   const voucherChannel = clean(b.voucher_channel || 'email', 30) || 'email';
   const source = clean(b.source || b.lead_source || utm.utm_source || 'website', 60) || 'website';
   const visitorId = UUID.test(clean(b.visitor_id, 36)) ? clean(b.visitor_id, 36) : null;
+  const behaviorConsent = b.behavior_tracking === true || b.behavior_tracking === 'true';
 
   if (!name || !explicitEmail || !consent || !b.selected_tour_id || !travelDate || !partySize) {
     return send(res, 400, { error: 'Vui lòng điền đủ thông tin đặt tour hợp lệ và đồng ý để chúng tôi liên hệ.' });
@@ -137,6 +138,15 @@ export default async function handler(req, res) {
   const today = new Date().toISOString().slice(0, 10);
   const latestNearDate = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
   const travelDateNear = Boolean(travelDate && travelDate >= today && travelDate <= latestNearDate);
+  const visitorFormData = behaviorConsent
+    ? {
+        phone_provided: Boolean(explicitPhone),
+        travel_date_near: travelDateNear,
+        has_budget: budget !== null && budget > 0,
+        selected_tour: true,
+        party_size_multiple: partySize > 1,
+      }
+    : {};
 
   const requestId = clean(req.headers['idempotency-key'] || b.request_id || '', 80) || crypto.randomUUID();
   const failure = { stage: 'load_tours', status: undefined, databaseCode: undefined };
@@ -185,13 +195,7 @@ export default async function handler(req, res) {
     const prior = await existingResponse.json();
     const first = Array.isArray(prior) ? prior[0] : null;
     if (first) {
-      await recordConsultationVisitor(visitorId, first.lead_id, utm, {
-        phone_provided: Boolean(explicitPhone),
-        travel_date_near: travelDateNear,
-        has_budget: budget !== null && budget > 0,
-        selected_tour: Boolean(selected),
-        party_size_multiple: partySize > 1,
-      });
+      await recordBookingVisitor(visitorId, first.lead_id, utm, visitorFormData);
       return send(res, 200, {
         lead_id: first.lead_id,
         notification_status: first.notification_status || 'PENDING',
@@ -216,13 +220,7 @@ export default async function handler(req, res) {
     }
     const recent = await recentResponse.json();
     if (Array.isArray(recent) && recent[0]) {
-      await recordConsultationVisitor(visitorId, recent[0].lead_id, utm, {
-        phone_provided: Boolean(explicitPhone),
-        travel_date_near: travelDateNear,
-        has_budget: budget !== null && budget > 0,
-        selected_tour: Boolean(selected),
-        party_size_multiple: partySize > 1,
-      });
+      await recordBookingVisitor(visitorId, recent[0].lead_id, utm, visitorFormData);
       return send(res, 200, {
         lead_id: recent[0].lead_id,
         notification_status: recent[0].notification_status || 'PENDING',
@@ -311,42 +309,9 @@ export default async function handler(req, res) {
       throw new Error('Lead ID missing after save');
     }
 
-    const visitorScore = await recordConsultationVisitor(visitorId, lead.lead_id, utm, {
-      phone_provided: Boolean(explicitPhone),
-      travel_date_near: travelDateNear,
-      has_budget: budget !== null && budget > 0,
-      selected_tour: Boolean(selected),
-      party_size_multiple: partySize > 1,
-    });
+    await recordBookingVisitor(visitorId, lead.lead_id, utm, visitorFormData);
 
-    let notificationLead = { ...row, lead_id: lead.lead_id };
-    if (visitorScore && Number.isFinite(Number(visitorScore.score)) &&
-        ['COLD', 'WARM', 'HOT'].includes(visitorScore.temperature)) {
-      const scoreUpdate = {
-        lead_score: Number(visitorScore.score),
-        lead_level: visitorScore.temperature,
-        score_signals: visitorScore.signals || {},
-      };
-      notificationLead = { ...notificationLead, ...scoreUpdate };
-      try {
-        const scoreResponse = await supabase(`leads?lead_id=eq.${encodeURIComponent(lead.lead_id)}`, {
-          method: 'PATCH',
-          body: JSON.stringify(scoreUpdate),
-        });
-        if (!scoreResponse.ok) {
-          console.error('[api/leads] Could not update lead engagement score', {
-            status: scoreResponse.status,
-            databaseCode: await supabaseErrorCode(scoreResponse),
-          });
-        }
-      } catch (error) {
-        console.error('[api/leads] Could not update lead engagement score', {
-          errorCode: error?.code || error?.name || 'UNKNOWN',
-        });
-      }
-    }
-
-    const notificationStatus = await notifyAndRecord(notificationLead);
+    const notificationStatus = await notifyAndRecord({ ...row, lead_id: lead.lead_id });
 
     return send(res, 201, {
       lead_id: lead.lead_id,

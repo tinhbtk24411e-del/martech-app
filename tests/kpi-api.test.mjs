@@ -51,6 +51,7 @@ test('KPI endpoint aggregates every Supabase page without returning lead details
         by_priority: { MEDIUM: 1 },
         by_source: { tiktok: 1 },
         by_temperature: { WARM: 1 },
+        funnel: { visitors: 1, engaged: 1, booking_started: 1, booking_submitted: 1 },
       }), { status: 200 });
     }
     assert.match(requestUrl, /^https:\/\/supabase\.example\/rest\/v1\/leads\?/);
@@ -71,6 +72,12 @@ test('KPI endpoint aggregates every Supabase page without returning lead details
     assert.equal(response.data.visitor_by_priority.MEDIUM, 1);
     assert.equal(response.data.visitor_by_source.tiktok, 1);
     assert.equal(response.data.visitor_by_temperature.WARM, 1);
+    assert.deepEqual(response.data.visitor_funnel, {
+      visitors: 1,
+      engaged: 1,
+      booking_started: 1,
+      booking_submitted: 1,
+    });
     assert.equal(response.data.with_selected_tour, 1000);
     assert.equal(response.data.by_status.NEW, 1000);
     assert.equal(response.data.by_status.BOOKED, 1);

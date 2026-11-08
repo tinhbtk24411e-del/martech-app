@@ -36,6 +36,7 @@ function supabaseMock({
   automationUrls = [],
   failScoringColumns = false,
   automationAck = { sales_email_sent: true },
+  visitorScore = { score: 45, temperature: 'WARM', signals: { phone_provided: true } },
 }) {
   return async (input, options = {}) => {
     const url = String(input);
@@ -43,8 +44,8 @@ function supabaseMock({
     if (url.includes('/rest/v1/rpc/record_website_visitor')) {
       const event = JSON.parse(options.body);
       visitorEvents.push(event);
-      return json(event.p_event === 'consultation_submitted'
-        ? { score: 45, temperature: 'WARM', signals: { phone_provided: true } }
+      return json(event.p_event === 'booking_submitted'
+        ? visitorScore
         : null);
     }
     if (url.includes('/rest/v1/leads?contact=')) {
@@ -64,7 +65,8 @@ function supabaseMock({
       return json([{ lead_id: lead.lead_id }], 201);
     }
     if (url.includes('/rest/v1/leads?lead_id=') && options.method === 'PATCH') {
-      scoreUpdates.push(JSON.parse(options.body));
+      const update = JSON.parse(options.body);
+      if ('lead_score' in update) scoreUpdates.push(update);
       return new Response(null, { status: 204 });
     }
     if (url === ENV.N8N_BOOKING_WEBHOOK_URL) {
@@ -81,7 +83,7 @@ function submit(ip, key, body) {
   return handler({ method: 'POST', headers: { 'idempotency-key': key, 'x-forwarded-for': ip }, body }, res).then(() => res);
 }
 
-test('upgrades a tracked visitor to HIGH when a booking request is saved', async () => {
+test('keeps booking score independent from anonymous visitor temperature', async () => {
   const insertedLeads = [];
   const visitorEvents = [];
   const scoreUpdates = [];
@@ -93,6 +95,7 @@ test('upgrades a tracked visitor to HIGH when a booking request is saved', async
     scoreUpdates,
   }), () => submit('192.0.2.12', 'tracked-high-priority', leadBody({
     visitor_id: '6f1d2c3a-1111-4222-8333-444455556666',
+    behavior_tracking: true,
     utm_source: 'instagram',
     utm_medium: 'paid_social',
     utm_campaign: 'summer_sale',
@@ -101,15 +104,15 @@ test('upgrades a tracked visitor to HIGH when a booking request is saved', async
   assert.equal(res.statusCode, 201);
   assert.equal(insertedLeads[0].lead_priority, 'HIGH');
   assert.equal(insertedLeads[0].visitor_id, '6f1d2c3a-1111-4222-8333-444455556666');
+  assert.equal(insertedLeads[0].lead_score, 70);
+  assert.equal(insertedLeads[0].lead_level, 'HOT');
   assert.equal(automationPayloads[0].lead_priority, 'HIGH');
-  assert.deepEqual(scoreUpdates[0], {
-    lead_score: 45,
-    lead_level: 'WARM',
-    score_signals: { phone_provided: true },
-  });
+  assert.equal(automationPayloads[0].lead_score, 70);
+  assert.equal(automationPayloads[0].lead_level, 'HOT');
+  assert.deepEqual(scoreUpdates, []);
   assert.deepEqual(visitorEvents[0], {
     p_visitor_id: '6f1d2c3a-1111-4222-8333-444455556666',
-    p_event: 'consultation_submitted',
+    p_event: 'booking_submitted',
     p_utm_source: 'instagram',
     p_utm_medium: 'paid_social',
     p_utm_campaign: 'summer_sale',
@@ -124,6 +127,28 @@ test('upgrades a tracked visitor to HIGH when a booking request is saved', async
       party_size_multiple: true,
     },
   });
+});
+
+test('a valid booking stays at least WARM when visitor behavior score is COLD', async () => {
+  const insertedLeads = [];
+  const automationPayloads = [];
+  const visitorEvents = [];
+  await withEnv(ENV, () => withFetch(supabaseMock({
+    insertedLeads,
+    automationPayloads,
+    visitorEvents,
+    visitorScore: { score: 20, temperature: 'COLD', signals: {} },
+  }), async () => {
+    const res = await submit('192.0.2.14', 'booking-minimum-warm', leadBody({
+      visitor_id: '6f1d2c3a-1111-4222-8333-444455556666',
+      engagement: { tour_views: 0 },
+    }));
+    assert.equal(res.statusCode, 201);
+    assert.equal(insertedLeads[0].lead_score, 55);
+    assert.equal(insertedLeads[0].lead_level, 'WARM');
+    assert.equal(automationPayloads[0].lead_level, 'WARM');
+    assert.deepEqual(visitorEvents[0].p_form_data, {});
+  }));
 });
 
 test('rejects non-booking form submissions without saving a lead', async () => {
@@ -184,7 +209,7 @@ test('does not duplicate the same contact, tour, and date within 24h', async () 
     assert.equal(second.body.lead_id, first.body.lead_id);
     assert.equal(insertedLeads.length, 1);
     assert.equal(automationPayloads.length, 1, 'duplicate must not re-notify Sales');
-    assert.equal(visitorEvents[0].p_event, 'consultation_submitted');
+    assert.equal(visitorEvents[0].p_event, 'booking_submitted');
   }));
 });
 

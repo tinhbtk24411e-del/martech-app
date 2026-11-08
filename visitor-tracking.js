@@ -153,7 +153,7 @@ export function setBehaviorTrackingConsent(enabled) {
 export async function recordVisitorEvent(event) {
   const consentRequired = [
     'tour_detail_view', 'pricing_view', 'engaged_2m',
-    'return_visit', 'compare_or_save', 'contact_click',
+    'return_visit', 'compare_or_save', 'contact_click', 'booking_started',
   ];
   if (consentRequired.includes(event) && !hasBehaviorTrackingConsent()) return null;
 

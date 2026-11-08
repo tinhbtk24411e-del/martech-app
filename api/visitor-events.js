@@ -11,6 +11,7 @@ const EVENTS = [
   'return_visit',
   'compare_or_save',
   'contact_click',
+  'booking_started',
 ];
 const SOURCES = new Set(['facebook', 'tiktok', 'instagram', 'google', 'direct']);
 

@@ -1,6 +1,5 @@
 import { getVisitorId, getVisitorUtm, recordVisitorEvent, setBehaviorTrackingConsent } from './visitor-tracking.js';
 import { showPromotion } from './promo-offers.js';
-recordVisitorEvent('visit');
 
 const interests = ['Tiết kiệm', 'Khám phá', 'Nghỉ dưỡng', 'Ẩm thực', 'Chụp ảnh', 'Thiên nhiên', 'Trekking', 'Gia đình', 'Văn hóa'];
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
@@ -11,6 +10,8 @@ let chatConversation = [];
 let chatRequestPending = false;
 let behaviorTrackingConsent = false;
 let tourViewCount = 0;
+let bookingIntent = false;
+let bookingStartedTracked = false;
 let activeVoucherCode = '';
 try {
   activeVoucherCode = sessionStorage.getItem('vietjourney_voucher_code') || '';
@@ -102,6 +103,47 @@ function setMessage(form, text, status = false) {
   element.textContent = text;
   const messageStatus = status === true ? 'success' : status === 'warning' ? 'warning' : 'error';
   element.className = `form-message ${messageStatus}`;
+}
+
+function updateFunnelExperience(stage) {
+  const stages = {
+    COLD: {
+      label: 'KHÁM PHÁ ĐIỂM ĐẾN',
+      title: 'Đang khám phá? Bắt đầu từ điểm đến bạn thích.',
+      copy: 'Khám phá tour theo điểm đến, ngân sách và trải nghiệm phù hợp với bạn.',
+      cta: 'Khám phá tour',
+      href: '#tours',
+    },
+    WARM: {
+      label: 'TÌM HIỂU HÀNH TRÌNH',
+      title: 'Đã thấy hành trình hợp gu?',
+      copy: 'Xem lịch trình, giá tham khảo và thông tin tour trước khi chọn ngày đi.',
+      cta: 'Xem chi tiết tour',
+      href: '#tours',
+    },
+    HOT: {
+      label: 'BƯỚC ĐẶT TOUR',
+      title: 'Sẵn sàng lên kế hoạch cho chuyến đi?',
+      copy: 'Chọn ngày dự kiến và số khách; Sales sẽ xác nhận giá, ngày khởi hành và tình trạng chỗ.',
+      cta: 'Gửi yêu cầu đặt tour',
+      href: '#contact',
+    },
+  };
+  const selected = stages[stage] || stages.COLD;
+  $('#journeyStage').textContent = selected.label;
+  $('#journeyNudgeTitle').textContent = selected.title;
+  $('#journeyNudgeCopy').textContent = selected.copy;
+  $('#journeyNudgeCta').firstChild.textContent = `${selected.cta} `;
+  $('#journeyNudgeCta').href = selected.href;
+  $('#journeyNudge').dataset.stage = stage in stages ? stage : 'COLD';
+}
+
+function markBookingStarted() {
+  bookingIntent = true;
+  updateFunnelExperience('HOT');
+  if (!behaviorTrackingConsent || bookingStartedTracked) return;
+  bookingStartedTracked = true;
+  recordVisitorEvent('booking_started');
 }
 
 function duration(item) {
@@ -303,7 +345,10 @@ function toggleSavedTour(tour) {
   } catch {
     // Saving remains available for this page view when browser storage is disabled.
   }
-  if (savedTours.includes(id)) recordVisitorEvent('compare_or_save');
+  if (savedTours.includes(id)) {
+    updateFunnelExperience('WARM');
+    recordVisitorEvent('compare_or_save');
+  }
   renderTours();
 }
 
@@ -322,16 +367,14 @@ function selectTour(tour) {
   form.elements.selected_tour_id.value = tour.id;
   form.elements.selected_tour_name.value = tour.name;
   $('#tourName').value = tour.name;
-  form.elements.destination.value = tour.destination || '';
-  const length = duration(tour);
-  if (length) form.elements.duration.value = length;
-  form.elements.budget.value = String(Number(tour.price_per_person) || 0);
+  markBookingStarted();
   setMessage(form, `Đang đặt: ${tour.name}. Giá hiển thị là giá tham khảo; ngày đi và chỗ còn sẽ được Sales xác nhận.`, 'warning');
   location.hash = 'contact';
 }
 
 function showDetails(tour) {
   if (behaviorTrackingConsent) tourViewCount = Math.min(tourViewCount + 1, 3);
+  updateFunnelExperience('WARM');
   recordVisitorEvent('tour_detail_view');
   recordVisitorEvent('pricing_view');
   const dialog = $('#tourDialog');
@@ -414,21 +457,13 @@ function fieldData(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
 
-function updateBudgetPreview() {
-  const value = Number($('#leadForm').elements.budget.value);
-  $('#budgetPreview').textContent = Number.isFinite(value) && value >= 0
-    ? `Ngân sách của bạn: ${money(value)}/người.`
-    : 'Ví dụ: 2,000,000 đồng/người.';
-}
-
-$('#leadForm').elements.budget.addEventListener('input', updateBudgetPreview);
-
 const behaviorTrackingField = $('#leadForm').elements.behavior_tracking;
 behaviorTrackingField.checked = behaviorTrackingConsent;
 behaviorTrackingField.addEventListener('change', () => {
   behaviorTrackingConsent = behaviorTrackingField.checked;
   setBehaviorTrackingConsent(behaviorTrackingConsent);
   tourViewCount = 0;
+  if (behaviorTrackingConsent && bookingIntent) markBookingStarted();
 });
 
 $('#destinationSearch').addEventListener('submit', (event) => {
@@ -439,12 +474,18 @@ $('#destinationSearch').addEventListener('submit', (event) => {
   showSavedTours = false;
   $('#savedToggle').setAttribute('aria-pressed', 'false');
   renderTours();
+  if ($('#destinationQuery').value || $('#budgetQuery').value) updateFunnelExperience('WARM');
   $('#tours').scrollIntoView({ behavior: 'smooth' });
 });
 
 document.addEventListener('click', (event) => {
-  if (event.target.closest('a[href="#contact"]')) recordVisitorEvent('contact_click');
+  if (event.target.closest('a[href="#contact"]')) {
+    updateFunnelExperience('HOT');
+    recordVisitorEvent('contact_click');
+  }
 });
+
+$('#leadForm').addEventListener('focusin', markBookingStarted, { once: true });
 
 $('#budgetFilter').addEventListener('change', () => recordVisitorEvent('pricing_view'));
 function continueWithPromotion(voucherCode) {
@@ -484,12 +525,14 @@ function chatCustomerContext() {
     const field = form.elements.namedItem(name);
     return sanitizeText(field?.value || '', 100);
   };
+  const selectedTour = tours.find((tour) =>
+    String(tour.id) === String(form.elements.selected_tour_id.value));
 
   return {
-    destination: fieldValue('destination'),
-    duration: fieldValue('duration'),
-    budget: fieldValue('budget'),
-    budget_basis: fieldValue('budget') ? 'per_person' : '',
+    destination: selectedTour?.destination || '',
+    duration: duration(selectedTour || {}),
+    budget: selectedTour?.price_per_person || '',
+    budget_basis: selectedTour ? 'per_person' : '',
     party_size: fieldValue('party_size'),
     travel_date: fieldValue('travel_date'),
     interests: values('#leadInterests'),
@@ -566,6 +609,7 @@ async function sendChatMessage(query) {
     appendChatMessage(data.reply.trim());
     addChatLeadAction();
     const visitor = await recordVisitorEvent('ai_used');
+    updateFunnelExperience('WARM');
     showPromotion(visitor?.temperature || 'WARM', continueWithPromotion);
   } catch (error) {
     const message = error instanceof TypeError
@@ -597,6 +641,7 @@ $('#leadForm').addEventListener('submit', async (event) => {
     $('#tours').scrollIntoView({ behavior: 'smooth' });
     return;
   }
+  markBookingStarted();
 
   const email = String(payload.email || '').trim();
   const phone = String(payload.phone || '').trim();
@@ -642,6 +687,7 @@ $('#leadForm').addEventListener('submit', async (event) => {
       `Đã ghi nhận yêu cầu đặt tour. Ngày đi và tình trạng chỗ vẫn cần Sales xác nhận.${emailMessage} Mã yêu cầu: ${data.lead_id}`,
       data.notification_status === 'SENT' ? true : 'warning',
     );
+    updateFunnelExperience('HOT');
     form.reset();
     activeVoucherCode = '';
     try {
@@ -651,7 +697,6 @@ $('#leadForm').addEventListener('submit', async (event) => {
     }
     behaviorTrackingField.checked = behaviorTrackingConsent;
     $('#tourName').value = '';
-    updateBudgetPreview();
   } catch (error) {
     setMessage(form, error.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.');
   } finally {
@@ -676,3 +721,9 @@ chips('#leadInterests');
 configureBookingForm();
 getCurrentUtm();
 loadTours();
+updateFunnelExperience('COLD');
+recordVisitorEvent('visit').then((visitor) => {
+  if (behaviorTrackingConsent && ['COLD', 'WARM', 'HOT'].includes(visitor?.temperature)) {
+    updateFunnelExperience(visitor.temperature);
+  }
+});

@@ -60,8 +60,23 @@ test('normalizes unknown sources and rejects invalid session ids or events', asy
   });
   assert.equal(invalid.statusCode, 400);
 
-  const protectedEvent = await run({ visitor_id: VISITOR_ID, event: 'consultation_submitted' }, async () => {
+  const protectedEvent = await run({ visitor_id: VISITOR_ID, event: 'booking_submitted' }, async () => {
     throw new Error('consultation completion must only be recorded by the lead API');
   });
   assert.equal(protectedEvent.statusCode, 400);
+});
+
+test('records the booking-started funnel event', async () => {
+  let recorded;
+  const res = await run({
+    visitor_id: VISITOR_ID,
+    event: 'booking_started',
+  }, async (_url, options) => {
+    recorded = JSON.parse(options.body);
+    return json({ score: 0, temperature: 'COLD', signals: { booking_started: true } });
+  });
+
+  assert.equal(res.statusCode, 202);
+  assert.equal(recorded.p_event, 'booking_started');
+  assert.equal(res.body.recorded, true);
 });

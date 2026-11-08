@@ -22,10 +22,12 @@ function renderCards(data) {
   const booked = count(data.by_status?.BOOKED);
   const cards = [
     ['Khách truy cập', numberFormat.format(count(data.visitor_total)), 'Mã hết hạn sau 7 ngày không truy cập'],
-    ['Visitor lạnh', numberFormat.format(count(data.visitor_by_temperature?.COLD)), 'Điểm dưới 40'],
-    ['Visitor ấm', numberFormat.format(count(data.visitor_by_temperature?.WARM)), 'Điểm 40–69 hoặc đã chat AI'],
-    ['Visitor nóng', numberFormat.format(count(data.visitor_by_temperature?.HOT)), 'Điểm từ 70'],
-    ['Đã gửi tư vấn', numberFormat.format(count(data.visitor_by_priority?.HIGH)), 'Ưu tiên form HIGH'],
+    ['Visitor lạnh', numberFormat.format(count(data.visitor_by_temperature?.COLD)), 'Chưa có nhiều tín hiệu quan tâm'],
+    ['Visitor ấm', numberFormat.format(count(data.visitor_by_temperature?.WARM)), 'Đang cân nhắc tour'],
+    ['Visitor nóng', numberFormat.format(count(data.visitor_by_temperature?.HOT)), 'Có nhiều tín hiệu quan tâm'],
+    ['Đã xem/quan tâm tour', numberFormat.format(count(data.visitor_funnel?.engaged)), 'Hành vi này cần consent theo dõi'],
+    ['Bắt đầu booking', numberFormat.format(count(data.visitor_funnel?.booking_started)), 'Bắt đầu nhập form; cần consent'],
+    ['Đã gửi booking', numberFormat.format(count(data.visitor_funnel?.booking_submitted)), 'Booking ghi nhận phía máy chủ'],
     ['Tổng lead', numberFormat.format(total), 'Trong 180 ngày gần nhất'],
     ['Đã đặt tour', numberFormat.format(booked), 'Trạng thái BOOKED'],
     ['Tỷ lệ đặt tour', percentFormat.format(total ? booked / total : 0), 'Đặt tour / tổng lead'],
@@ -129,7 +131,8 @@ async function loadKpi() {
     if (!response.ok) throw new Error(data.error || 'Không tải được dữ liệu KPI.');
     if (!data || !Number.isFinite(Number(data.total)) || !Number.isFinite(Number(data.visitor_total)) ||
         !data.by_status || !data.by_level || !data.by_source || !data.visitor_by_priority ||
-        !data.visitor_by_source || !data.visitor_by_temperature || !data.by_month) {
+        !data.visitor_by_source || !data.visitor_by_temperature || !data.visitor_funnel ||
+        !data.by_month) {
       throw new Error('Dữ liệu KPI trả về không đúng định dạng.');
     }
 
@@ -330,6 +333,7 @@ function exportCsv() {
     ...Object.entries(liveData.visitor_by_priority || {}).map(([key, value]) => ['Ưu tiên visitor', key, count(value)]),
     ...Object.entries(liveData.visitor_by_temperature || {}).map(([key, value]) => ['Phân loại visitor', key, count(value)]),
     ...Object.entries(liveData.visitor_by_source || {}).map(([key, value]) => ['Nguồn visitor UTM', key, count(value)]),
+    ...Object.entries(liveData.visitor_funnel || {}).map(([key, value]) => ['Funnel visitor', key, count(value)]),
     ...Object.entries(liveData.by_status || {}).map(([key, value]) => ['Trạng thái', key, count(value)]),
     ...Object.entries(liveData.by_level || {}).map(([key, value]) => ['Mức ưu tiên', key, count(value)]),
     ...Object.entries(liveData.by_source || {}).map(([key, value]) => ['Nguồn UTM', key, count(value)]),

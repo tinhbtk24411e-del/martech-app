@@ -217,7 +217,8 @@ create table if not exists public.website_visitors (
   has_budget boolean not null default false,
   selected_tour boolean not null default false,
   party_size_multiple boolean not null default false,
-  consultation_submitted boolean not null default false,
+  booking_started boolean not null default false,
+  booking_submitted boolean not null default false,
   lead_id uuid,
   first_seen_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now()
@@ -244,7 +245,25 @@ alter table public.website_visitors
   add column if not exists travel_date_near boolean not null default false,
   add column if not exists has_budget boolean not null default false,
   add column if not exists selected_tour boolean not null default false,
-  add column if not exists party_size_multiple boolean not null default false;
+  add column if not exists party_size_multiple boolean not null default false,
+  add column if not exists booking_started boolean not null default false,
+  add column if not exists booking_submitted boolean not null default false;
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'website_visitors'
+      and column_name = 'consultation_submitted'
+  ) then
+    execute 'update public.website_visitors
+      set booking_submitted = true
+      where consultation_submitted = true and booking_submitted = false';
+  end if;
+end;
+$$;
 
 alter table public.website_visitors
   drop constraint if exists website_visitors_temperature_check;
@@ -275,8 +294,10 @@ with visitor_scores as (
 update public.website_visitors as visitors
 set score = visitor_scores.score,
     temperature = case
-      when visitor_scores.score >= 70 then 'HOT'
-      when visitor_scores.score >= 40 or visitors.ai_used then 'WARM'
+      when visitor_scores.score >= 70 or visitors.booking_started or visitors.booking_submitted then 'HOT'
+      when visitor_scores.score >= 40 or visitors.ai_used or visitors.tour_detail_views > 0
+        or visitors.pricing_view or visitors.return_visit or visitors.compare_or_save
+        or visitors.contact_click then 'WARM'
       else 'COLD'
     end,
     score_signals = jsonb_build_object(
@@ -291,7 +312,9 @@ set score = visitor_scores.score,
       'travel_date_near', visitors.travel_date_near,
       'has_budget', visitors.has_budget,
       'selected_tour', visitors.selected_tour,
-      'party_size_multiple', visitors.party_size_multiple
+      'party_size_multiple', visitors.party_size_multiple,
+      'booking_started', visitors.booking_started,
+      'booking_submitted', visitors.booking_submitted
     )
 from visitor_scores
 where visitors.visitor_id = visitor_scores.visitor_id;
@@ -318,10 +341,12 @@ declare
   safe_source text;
   visitor_score integer;
   visitor_temperature text;
+  has_booking_intent boolean;
+  has_engagement boolean;
 begin
   if p_event not in (
     'visit', 'ai_used', 'tour_detail_view', 'pricing_view', 'engaged_2m',
-    'return_visit', 'compare_or_save', 'contact_click', 'consultation_submitted'
+    'return_visit', 'compare_or_save', 'contact_click', 'booking_started', 'booking_submitted'
   ) then
     raise exception 'Unsupported visitor event';
   end if;
@@ -336,12 +361,13 @@ begin
     visitor_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
     priority, page_views, ai_used, tour_detail_views, pricing_view, engaged_2m,
     return_visit, compare_or_save, contact_click, phone_provided, travel_date_near,
-    has_budget, selected_tour, party_size_multiple, consultation_submitted, lead_id
+    has_budget, selected_tour, party_size_multiple, booking_started, booking_submitted, lead_id
   )
   values (
     p_visitor_id, safe_source, p_utm_medium, p_utm_campaign, p_utm_content, p_utm_term,
     case p_event
-      when 'consultation_submitted' then 'HIGH'
+      when 'booking_submitted' then 'HIGH'
+      when 'booking_started' then 'MEDIUM'
       when 'ai_used' then 'MEDIUM'
       else 'LOW'
     end,
@@ -358,7 +384,8 @@ begin
     coalesce((p_form_data ->> 'has_budget')::boolean, false),
     coalesce((p_form_data ->> 'selected_tour')::boolean, false),
     coalesce((p_form_data ->> 'party_size_multiple')::boolean, false),
-    p_event = 'consultation_submitted',
+    p_event = 'booking_started',
+    p_event = 'booking_submitted',
     p_lead_id
   )
   on conflict (visitor_id) do update set
@@ -389,7 +416,8 @@ begin
     has_budget = public.website_visitors.has_budget or excluded.has_budget,
     selected_tour = public.website_visitors.selected_tour or excluded.selected_tour,
     party_size_multiple = public.website_visitors.party_size_multiple or excluded.party_size_multiple,
-    consultation_submitted = public.website_visitors.consultation_submitted or excluded.consultation_submitted,
+    booking_started = public.website_visitors.booking_started or excluded.booking_started,
+    booking_submitted = public.website_visitors.booking_submitted or excluded.booking_submitted,
     lead_id = coalesce(excluded.lead_id, public.website_visitors.lead_id),
     last_seen_at = now();
 
@@ -407,14 +435,16 @@ begin
       has_budget::integer * 10 +
       selected_tour::integer * 10 +
       party_size_multiple::integer * 5
-  )
-  into visitor_score
+  ),
+  booking_started or booking_submitted,
+  ai_used or tour_detail_views > 0 or pricing_view or return_visit or compare_or_save or contact_click
+  into visitor_score, has_booking_intent, has_engagement
   from public.website_visitors
   where visitor_id = p_visitor_id;
 
   visitor_temperature := case
-    when visitor_score >= 70 then 'HOT'
-    when visitor_score >= 40 or p_event = 'ai_used' then 'WARM'
+    when visitor_score >= 70 or has_booking_intent then 'HOT'
+    when visitor_score >= 40 or has_engagement then 'WARM'
     else 'COLD'
   end;
 
@@ -433,7 +463,9 @@ begin
         'travel_date_near', travel_date_near,
         'has_budget', has_budget,
         'selected_tour', selected_tour,
-        'party_size_multiple', party_size_multiple
+        'party_size_multiple', party_size_multiple,
+        'booking_started', booking_started,
+        'booking_submitted', booking_submitted
       )
   where visitor_id = p_visitor_id;
 
@@ -490,7 +522,22 @@ as $$
           where first_seen_at >= p_since
           group by temperature
         ) counts
-      ), '{}'::jsonb)
+      ), '{}'::jsonb),
+    'funnel',
+      jsonb_build_object(
+        'visitors',
+          (select count(*) from public.website_visitors where first_seen_at >= p_since),
+        'engaged',
+          (select count(*) from public.website_visitors
+            where first_seen_at >= p_since
+              and (tour_detail_views > 0 or pricing_view or ai_used or compare_or_save)),
+        'booking_started',
+          (select count(*) from public.website_visitors
+            where first_seen_at >= p_since and booking_started),
+        'booking_submitted',
+          (select count(*) from public.website_visitors
+            where first_seen_at >= p_since and booking_submitted)
+      )
   );
 $$;
 

@@ -68,7 +68,11 @@ export default async function handler(req, res) {
         Array.isArray(visitorStats.by_priority) || !visitorStats.by_source ||
         typeof visitorStats.by_source !== 'object' || Array.isArray(visitorStats.by_source) ||
         !visitorStats.by_temperature || typeof visitorStats.by_temperature !== 'object' ||
-        Array.isArray(visitorStats.by_temperature)) {
+        Array.isArray(visitorStats.by_temperature) ||
+        !visitorStats.funnel || typeof visitorStats.funnel !== 'object' ||
+        Array.isArray(visitorStats.funnel) ||
+        ['visitors', 'engaged', 'booking_started', 'booking_submitted'].some((key) =>
+          !Number.isFinite(Number(visitorStats.funnel[key])) || Number(visitorStats.funnel[key]) < 0)) {
       console.error('[api/kpi] Supabase returned invalid visitor aggregates');
       return send(res, 503, { error: 'Dữ liệu KPI không đúng định dạng.' });
     }
@@ -97,6 +101,7 @@ export default async function handler(req, res) {
       visitor_by_priority: visitorStats.by_priority,
       visitor_by_source: visitorStats.by_source,
       visitor_by_temperature: visitorStats.by_temperature,
+      visitor_funnel: visitorStats.funnel,
       by_month: byMonth,
       note: 'Tổng hợp visitor ẩn danh và lead; không chứa thông tin liên hệ.',
     });

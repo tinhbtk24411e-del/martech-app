@@ -63,6 +63,14 @@
           <div class="finder-note"><span>☀</span> Chưa biết chọn đâu? Cứ xem những nơi mọi người yêu thích.</div>
         </div>
       </section>
+      <section id="journeyNudge" class="journey-nudge" aria-live="polite" aria-labelledby="journeyNudgeTitle">
+        <div>
+          <p id="journeyStage" class="eyebrow">KHÁM PHÁ ĐIỂM ĐẾN</p>
+          <h2 id="journeyNudgeTitle">Đang khám phá? Bắt đầu từ điểm đến bạn thích.</h2>
+          <p id="journeyNudgeCopy">Khám phá tour theo điểm đến, ngân sách và trải nghiệm phù hợp với bạn.</p>
+        </div>
+        <a id="journeyNudgeCta" class="button teal" href="#tours">Khám phá tour <span>→</span></a>
+      </section>
       <section class="promise-strip" aria-label="VietJourney đồng hành cùng bạn">
         <div><span>01</span><p><strong>Tour rõ ràng</strong><small>Thông tin từ dữ liệu VietJourney</small></p></div>
         <div><span>02</span><p><strong>Chọn theo ý bạn</strong><small>Lọc nơi đến, thời gian và ngân sách</small></p></div>
@@ -123,18 +131,16 @@
             <div class="form-grid">
               <label id="emailField">Email (bắt buộc)<input name="email" type="email" required maxlength="160" autocomplete="email" placeholder="email@example.com"></label>
               <label>Zalo / WhatsApp (tùy chọn)<input name="zalo_phone" maxlength="40" placeholder="Nếu có"></label>
-              <label id="destinationField">Điểm đến (bắt buộc)<input name="destination" required maxlength="100" placeholder="Chọn tour để tự điền điểm đến"></label>
-              <label id="durationField">Thời lượng (ngày) (bắt buộc)<input name="duration" type="number" required min="1" max="60"></label>
-              <label id="budgetField">Ngân sách dự kiến/người (đồng) (bắt buộc)<input name="budget" type="number" required min="1"><small id="budgetPreview" class="field-hint">Giá tham khảo theo tour đã chọn.</small></label>
               <label id="partySizeField">Số người (bắt buộc)<input name="party_size" type="number" required min="1" max="30" placeholder="Số khách"></label>
               <label id="travelDateField">Ngày dự kiến (bắt buộc)<input name="travel_date" type="date" required></label>
               <label id="selectedTourField">Tour đã chọn<input id="tourName" required readonly placeholder="Chưa chọn tour"></label>
             </div>
+            <p class="field-hint">Điểm đến, thời lượng và giá tham khảo sẽ tự lấy từ tour bạn chọn.</p>
             <fieldset id="interestsField"><legend>Sở thích (tùy chọn)</legend><div id="leadInterests" class="chips"></div></fieldset>
             <label id="noteField">Lời nhắn<textarea name="note" maxlength="1000" rows="3" placeholder="Thông tin thêm nếu có..."></textarea></label>
           </details>
           <label class="consent"><input name="consent_to_contact" type="checkbox" value="true" required> <span id="contactConsentText">Tôi đồng ý để VietJourney xử lý yêu cầu đặt tour và liên hệ xác nhận.</span></label>
-          <label id="trackingConsent" class="consent"><input name="behavior_tracking" type="checkbox" value="true"> Cho phép lưu tín hiệu xem chi tiết tour và quay lại trên trình duyệt để cá nhân hóa gợi ý tour (tùy chọn).</label>
+          <label id="trackingConsent" class="consent"><input name="behavior_tracking" type="checkbox" value="true"> Cho phép lưu tín hiệu xem tour, quay lại và bắt đầu booking trên trình duyệt để cá nhân hóa gợi ý (tùy chọn).</label>
           <p class="field-hint">Website dùng mã ẩn danh lưu trên trình duyệt, hết hạn sau 7 ngày không truy cập, để ghi nhận lượt truy cập, nguồn UTM và việc sử dụng AI; không lưu IP hoặc nội dung chat. Tín hiệu xem tour, tương tác và quay lại chỉ ghi nhận khi bạn chọn ô trên.</p>
           <button id="leadSubmit" class="button coral" type="submit">Gửi yêu cầu đặt tour</button>
           <p class="form-message" aria-live="polite"></p>
