@@ -1,0 +1,443 @@
+{
+  "name": "VietJourney - 1. Lead Capture",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vietjourney-lead",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        976,
+        400
+      ],
+      "id": "ba233c32-f180-4024-9cca-f29ae33feae4",
+      "name": "Webhook",
+      "webhookId": "bb1f217d-8e4d-48f6-a616-a03780a3467f",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "yKR4iIHLQjZhBWvy",
+          "name": "VietJourney Webhook Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $input.first().json;\nconst body = (p.body && typeof p.body === 'object') ? p.body : p;\nreturn [{ json: body }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        400
+      ],
+      "id": "46074ca2-3508-49b1-a5cc-c95e8dd886f2",
+      "name": "Normalize Lead"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "05951283-ffc0-4d8e-830a-c28df58e37bd",
+              "leftValue": "={{ $json.contact }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "e8bcb9a6-3400-49d7-b2a4-52387c9f00cf",
+              "leftValue": "={{ $json.consent_to_contact }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1184,
+        400
+      ],
+      "id": "bb12a0eb-fb45-4a15-acec-de6a4bab68cd",
+      "name": "Validate Lead"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6100f701-2d6c-498b-a799-07ec3b7ba628",
+              "leftValue": "={{ $json.selected_tour_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1392,
+        304
+      ],
+      "id": "44ac664c-a884-4572-985a-710c161262d6",
+      "name": "Classify Lead"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8694bb8e-ed95-46cc-988c-e7c8eaae617f",
+              "name": "lead_priority",
+              "value": "HIGH_PRIORITY",
+              "type": "string"
+            },
+            {
+              "id": "4fc98e62-6d1f-4b7d-a3e0-3078778357e4",
+              "name": "lead_status",
+              "value": "NEW",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1600,
+        208
+      ],
+      "id": "d0a38b56-aad6-49be-ab6a-4e13fd3dcee3",
+      "name": "Set High Priority"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "918dc758-c09d-41a7-9897-7355459d5cf1",
+              "name": "lead_priority",
+              "value": "STANDARD",
+              "type": "string"
+            },
+            {
+              "id": "0888d860-9a16-4d60-98bc-062552a3c34b",
+              "name": "lead_status",
+              "value": "NEW",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1600,
+        400
+      ],
+      "id": "bea3b9e4-7875-4020-9557-e1708439a0a3",
+      "name": "Set Standard Lead"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "273485a6-8258-468b-8748-034ba7f4a487",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1792,
+        304
+      ],
+      "id": "8819999c-c48d-4830-880e-bee54c3dff68",
+      "name": "Has Customer Email"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Normalize Lead').item.json.email }}",
+        "subject": "VietJourney - Xác nhận yêu cầu tư vấn du lịch",
+        "message": "= <h2>VietJourney xin chào {{ $('Normalize Lead').item.json.name }}!</h2>\n<p>Cảm ơn bạn đã gửi yêu cầu tư vấn du lịch đến VietJourney.</p>\n<ul>\n<li><b>Điểm đến:</b> {{ $('Normalize Lead').item.json.destination }}</li>\n<li><b>Ngày khởi hành:</b> {{ $('Normalize Lead').item.json.travel_date || 'Chưa xác định' }}</li>\n<li><b>Thời gian:</b> {{ $('Normalize Lead').item.json.duration }} ngày</li>\n<li><b>Số người:</b> {{ $('Normalize Lead').item.json.party_size }}</li>\n</ul>\n<p>Đội ngũ tư vấn sẽ liên hệ bạn để trao đổi thêm về lịch trình và chi phí.</p>\n<p>Trân trọng,<br><b>VietJourney Tours</b></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2032,
+        240
+      ],
+      "id": "0c25e773-d2fc-4016-8c63-ab1f6229679e",
+      "name": "Send Customer Confirmation",
+      "webhookId": "77cf1679-a910-41c0-9355-5b59f13f54f1",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "THgYKzSGm1m1jVuI",
+          "name": "Gmail account 31"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "sendTo": "tinhbuifff@gmail.com",
+        "subject": "={{ '[VietJourney] Lead mới - ' + ($('Normalize Lead').item.json.selected_tour_id ? 'HIGH_PRIORITY' : 'STANDARD') }}",
+        "message": "= <h2>VietJourney — Khách hàng tiềm năng mới</h2>\n<p><b>Lead ID:</b> {{ $('Normalize Lead').item.json.lead_id || 'N/A' }}</p>\n<p><b>Mức ưu tiên:</b> {{ ($('Normalize Lead').item.json.selected_tour_id ? 'HIGH_PRIORITY' : 'STANDARD') }} · {{ $('Normalize Lead').item.json.lead_level || 'N/A' }} ({{ $('Normalize Lead').item.json.lead_score ?? 'N/A' }} điểm)</p>\n<hr>\n<h3>Thông tin khách hàng</h3>\n<p><b>Họ tên:</b> {{ $('Normalize Lead').item.json.name || 'N/A' }}</p>\n<p><b>Email:</b> {{ $('Normalize Lead').item.json.email || 'Chưa cung cấp' }}</p>\n<p><b>Số điện thoại:</b> {{ $('Normalize Lead').item.json.phone || $('Normalize Lead').item.json.contact || 'Chưa cung cấp' }}</p>\n<p><b>Zalo:</b> {{ $('Normalize Lead').item.json.zalo_phone || 'Chưa cung cấp' }}</p>\n<hr>\n<h3>Nhu cầu du lịch</h3>\n<p><b>Điểm đến:</b> {{ $('Normalize Lead').item.json.destination || 'N/A' }}</p>\n<p><b>Ngày khởi hành:</b> {{ $('Normalize Lead').item.json.travel_date || 'Chưa chọn' }}</p>\n<p><b>Thời gian:</b> {{ $('Normalize Lead').item.json.duration || 'N/A' }} ngày</p>\n<p><b>Số người:</b> {{ $('Normalize Lead').item.json.party_size || 'N/A' }}</p>\n<p><b>Ngân sách:</b> {{ $('Normalize Lead').item.json.budget ?? 'Chưa cung cấp' }} VND</p>\n<p><b>Tour đã chọn:</b> {{ $('Normalize Lead').item.json.selected_tour_name || 'Chưa chọn' }}</p>\n<p><b>Sở thích:</b> {{ Array.isArray($('Normalize Lead').item.json.interests) ? $('Normalize Lead').item.json.interests.join(', ') : ($('Normalize Lead').item.json.interests || 'Chưa cung cấp') }}</p>\n<p><b>Nguồn:</b> {{ $('Normalize Lead').item.json.utm_source || 'direct' }} / {{ $('Normalize Lead').item.json.utm_campaign || '-' }}</p>\n<p><b>Ghi chú:</b> {{ $('Normalize Lead').item.json.note || 'Không có' }}</p>\n<hr>\n<p>Vui lòng liên hệ khách hàng để tư vấn và xác nhận nhu cầu.</p>\n<p><i>Email tự động từ hệ thống VietJourney Tours.</i></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2304,
+        416
+      ],
+      "id": "e99be6eb-77d0-4694-a6dd-1db18b887b29",
+      "name": "Send Sales Notification",
+      "webhookId": "59277439-54b7-4d70-9573-6925314dc9eb",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "THgYKzSGm1m1jVuI",
+          "name": "Gmail account 31"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'error', notification_sent: false, message: 'Thiếu thông tin liên hệ hoặc chưa đồng ý' } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1392,
+        752
+      ],
+      "id": "c0fe7961-52c8-4449-979c-0b8a3f6b5512",
+      "name": "Respond Invalid"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'ok', notification_sent: true, lead_id: $('Normalize Lead').item.json.lead_id } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2544,
+        304
+      ],
+      "id": "74d0c42e-33dc-41c2-88b4-4ca294b7c5ce",
+      "name": "Respond Notified"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'ok', notification_sent: false, lead_id: $('Normalize Lead').item.json.lead_id } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2544,
+        448
+      ],
+      "id": "4ac21fd4-f278-49fc-95b9-7871ef15f022",
+      "name": "Respond Not Notified"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Lead": {
+      "main": [
+        [
+          {
+            "node": "Validate Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Lead": {
+      "main": [
+        [
+          {
+            "node": "Classify Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Lead": {
+      "main": [
+        [
+          {
+            "node": "Set High Priority",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Standard Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set High Priority": {
+      "main": [
+        [
+          {
+            "node": "Has Customer Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Standard Lead": {
+      "main": [
+        [
+          {
+            "node": "Has Customer Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Customer Email": {
+      "main": [
+        [
+          {
+            "node": "Send Customer Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Sales Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Customer Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Send Sales Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Sales Notification": {
+      "main": [
+        [
+          {
+            "node": "Respond Notified",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Not Notified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

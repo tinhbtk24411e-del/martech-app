@@ -119,3 +119,11 @@ Dashboard tại [dashboard.html](../dashboard.html) gọi `GET /api/kpi` để h
 Biến môi trường cần có: `N8N_BOOKING_WEBHOOK_URL` (URL production của workflow đặt tour), `N8N_WEBHOOK_SECRET` (xác thực webhook), `SALES_UPDATE_SECRET` (cập nhật trạng thái), `CRON_SECRET` (job retry). Chạy lại `docs/supabase-schema.sql` để thêm `sales_note`, `notification_attempts`, `last_notification_at`, trạng thái retry email xác nhận booking và các ràng buộc liên quan.
 
 Lưu ý về lịch Cron: gói Hobby của Vercel chỉ cho chạy cron tối đa một lần mỗi ngày, nên `vercel.json` đặt `0 3 * * *`. Nếu nâng lên gói Pro, có thể đổi thành `*/15 * * * *`.
+
+## v5: thu lead từ AI Planner và nuôi dưỡng
+
+`POST /api/itinerary-capture` nhận yêu cầu "gửi lịch trình về email" từ AI Planner. Đây không phải yêu cầu tư vấn. Body: `name`, `email`, `consent_to_contact` (bắt buộc `true`), `destination`, `duration_days`, `budget`, `party_size`, `plan_summary`, `utm_source`.
+
+Kết quả: tạo lead `lead_source = itinerary_capture`, `care_priority = COLD`, `nurture_step = 0`, gửi lịch trình qua workflow nuôi dưỡng với `action = itinerary_delivery`. Cùng email và điểm đến trong 24 giờ trả `duplicate: true`, không tạo lead mới và không gửi lại. Nếu n8n không xác nhận, lead giữ `notification_status = PENDING`.
+
+`GET /api/nurture` (Bearer `CRON_SECRET`) gửi các bước 1–4 cho lead COLD sau ngày 1 và WARM sau ngày 1 (xem `lib/_nurture.js`). `GET /api/optout?lead_id&sig` hủy nhận email, xác thực bằng HMAC với `NURTURE_SECRET`.

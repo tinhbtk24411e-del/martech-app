@@ -545,3 +545,36 @@ revoke all on function public.get_website_visitor_kpis(timestamptz)
   from public, anon, authenticated;
 grant execute on function public.get_website_visitor_kpis(timestamptz)
   to service_role;
+
+-- ---------------------------------------------------------------
+-- v3: care tier (HOT / WARM / COLD) = mức ưu tiên chăm sóc theo ý định.
+-- Khác với lead_level (điểm tương tác). Xem lib/_scoring.js: careTier().
+-- ---------------------------------------------------------------
+alter table public.leads add column if not exists care_priority text;
+
+update public.leads set care_priority = case
+  when lead_source = 'booking_form' then 'HOT'
+  when selected_tour_id is not null then 'WARM'
+  else 'COLD'
+end
+where care_priority is null;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'leads_care_priority_check') then
+    alter table public.leads add constraint leads_care_priority_check
+      check (care_priority in ('HOT', 'WARM', 'COLD'));
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------
+-- v4: nuôi dưỡng (nurture). Chỉ áp dụng cho lead WARM / COLD chưa được Sales nhận.
+-- ---------------------------------------------------------------
+alter table public.leads
+  add column if not exists nurture_step integer not null default 0,
+  add column if not exists nurture_opt_out boolean not null default false,
+  add column if not exists nurture_last_sent_at timestamptz;
+
+create index if not exists leads_nurture_due_idx
+  on public.leads (created_at)
+  where lead_status = 'NEW' and nurture_opt_out = false and nurture_step < 4;

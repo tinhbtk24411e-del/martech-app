@@ -1,0 +1,1383 @@
+{
+  "name": "Booking Confirmation (Sheets)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vietjourney-booking",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ddc698f3-98f2-4102-b779-e96162f34108",
+      "name": "Webhook - VietJourney Booking (POST /vietjourney-booking)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        1824,
+        624
+      ],
+      "webhookId": "c5adf816-d74c-4a2e-b9f4-ffdc72f9d3de",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "yKR4iIHLQjZhBWvy",
+          "name": "VietJourney Webhook Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json.body ?? $json;\nreturn [{ json: data }];"
+      },
+      "id": "71b3876c-c368-4bc9-a695-724bc4134485",
+      "name": "Normalize Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e8801826-d0f8-46ce-8d22-7fef18992f69",
+              "leftValue": "={{ String($json.lead_id ?? '').trim().length > 0 }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "0dc0bea1-f1fa-4bd2-86f5-eae6ad091fa1",
+              "leftValue": "={{ $json.booking_request !== undefined && $json.booking_request !== null && $json.booking_request !== '' && (typeof $json.booking_request !== 'object' || Object.keys($json.booking_request).length > 0) }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0a5f5bf8-d7ec-4dd8-afce-d9b28af4190c",
+      "name": "IF - Valid lead_id and booking_request",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2272,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"sales_email_sent\": false,\n  \"customer_email_sent\": false,\n  \"error\": \"invalid_payload\"\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "120d62c1-cb66-4fd3-956e-c1f8cec64d74",
+      "name": "Respond - Invalid payload (400)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2288,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "99718f76-700d-4a7e-8eef-e397ca1af4ae",
+              "leftValue": "={{ !['LOW', 'MEDIUM'].includes(String($json.lead_priority ?? '').trim().toUpperCase()) }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "459335cf-5ab1-4c1c-a3f9-484f1b0b5fd4",
+      "name": "IF - Not LOW/MEDIUM visitor",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2496,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"sales_email_sent\": false,\n  \"customer_email_sent\": false,\n  \"reason\": \"lead_priority_not_eligible\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "f2d24cf5-19b0-4c16-b80c-88bd51aaf383",
+      "name": "Respond - Skipped LOW/MEDIUM (false)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2560,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "19b34887-4f73-4d99-9d82-637e04375686",
+              "leftValue": "={{ String($('Normalize Payload').first().json.booking_event ?? '').trim() }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "sales_confirmed"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "30d57a9a-2f3a-4884-a665-d706ddfe9f71",
+      "name": "IF - booking_event is sales_confirmed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3152,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "4LzpONfKZBVArGKg",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "keyValue": "={{ String($('Normalize Payload').first().json.lead_id).trim() + ':booking-sales' }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "2f73103d-4682-4d5d-9820-998026cc6f36",
+      "name": "Data Table - Get Sales Sent Status (lead_id:sales)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        3376,
+        976
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a36a72f7-901f-47f7-9188-4cb0745dd890",
+              "leftValue": "={{ String($json.status ?? '').trim() }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "SENT"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a0068d36-6575-4e88-9634-7a7af8c4705a",
+      "name": "IF - Sales email already SENT",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3600,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"sales_email_sent\": true\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "a7e7bc10-1d97-43be-bca6-732acfe6ff2e",
+      "name": "Respond - Sales already sent (true)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3824,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');\nconst flat = (v) => {\n  if (v === undefined || v === null) return '';\n  if (Array.isArray(v)) return v.map(x => (x && typeof x === 'object') ? JSON.stringify(x) : String(x)).join(', ');\n  if (typeof v === 'object') return JSON.stringify(v);\n  return String(v);\n};\nconst cap = (v, n = 500) => { const s = flat(v).trim(); return s.length > n ? s.slice(0, n) + '…' : s; };\nconst oneLine = (v, n = 80) => flat(v).replace(/[\\r\\n\\t]+/g, ' ').trim().slice(0, n);\nconst safeLink = (v) => (/^https?:\\/\\/\\S+$/i.test(String(v ?? '').trim()) ? String(v).trim() : '');\n\nconst visibleRows = (rows) => rows.map(([l, v]) => [l, cap(v)]).filter(([, v]) => v !== '');\n\nconst renderHtml = (title, intro, sections, link) => {\n  const parts = ['<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;max-width:640px\">',\n    `<h2 style=\"margin:0 0 8px\">${esc(title)}</h2>`];\n  if (intro) parts.push(`<p style=\"margin:0 0 12px\">${esc(intro)}</p>`);\n  for (const [heading, rows] of sections) {\n    const shown = visibleRows(rows);\n    if (!shown.length) continue;\n    parts.push(`<h3 style=\"margin:16px 0 6px;font-size:15px\">${esc(heading)}</h3>`);\n    parts.push('<table style=\"border-collapse:collapse;width:100%\">');\n    for (const [l, v] of shown) {\n      parts.push(`<tr><td style=\"padding:4px 8px;border:1px solid #ddd;background:#f7f7f7;width:35%\">${esc(l)}</td><td style=\"padding:4px 8px;border:1px solid #ddd\">${esc(v)}</td></tr>`);\n    }\n    parts.push('</table>');\n  }\n  if (link) parts.push(`<p style=\"margin-top:16px\"><a href=\"${esc(link)}\">Mở để xử lý</a></p>`);\n  return parts.concat(['</div>']).join('');\n};\n\nconst renderText = (title, intro, sections, link) => {\n  const lines = [title, ''];\n  if (intro) lines.push(intro, '');\n  for (const [heading, rows] of sections) {\n    const shown = visibleRows(rows);\n    if (!shown.length) continue;\n    lines.push(`== ${heading} ==`);\n    for (const [l, v] of shown) lines.push(`${l}: ${v}`);\n    lines.push('');\n  }\n  if (link) lines.push(`Link xử lý: ${link}`);\n  return lines.join('\\n');\n};\n\nconst d = $('Normalize Payload').first().json;\nconst leadId = oneLine(d.lead_id, 120);\n\n// Không đưa các trường trông nhạy cảm vào email; chỉnh regex/allowlist theo payload thực tế nếu cần.\nconst SENSITIVE = /(password|passwd|secret|token|api[_-]?key|card|cvv|cvc|otp|passport|cccd|cmnd|national[_-]?id|id[_-]?number|ssn)/i;\nconst br = (d.booking_request && typeof d.booking_request === 'object' && !Array.isArray(d.booking_request))\n  ? d.booking_request : { booking_request: d.booking_request };\nconst bookingRows = Object.entries(br).filter(([k]) => !SENSITIVE.test(k)).slice(0, 40);\n\nconst sections = [\n  ['Thông tin liên hệ', [\n    ['Họ tên', d.name ?? d.customer_name], ['Email', d.email ?? d.customer_email],\n    ['Số điện thoại', d.phone]]],\n  ['Chi tiết yêu cầu booking (theo dữ liệu backend gửi)', bookingRows],\n  ['Lead', [\n    ['lead_id', d.lead_id], ['Mức lead (lead_level)', d.lead_level], ['Ưu tiên (lead_priority)', d.lead_priority],\n    ['Tour đã chọn', d.selected_tour_name]]],\n  ['Nguồn / UTM', [\n    ['Nguồn', d.source], ['utm_source', d.utm_source], ['utm_medium', d.utm_medium],\n    ['utm_campaign', d.utm_campaign]]]\n];\nconst link = safeLink(d.lead_url);\nconst title = 'Yêu cầu booking mới';\nconst intro = `Khách vừa gửi yêu cầu booking (lead_id ${leadId}). Sales vui lòng liên hệ và xử lý.`;\n\nreturn [{ json: {\n  email_subject: `[VietJourney] Yêu cầu booking mới - ${leadId}`,\n  email_html: renderHtml(title, intro, sections, link),\n  email_text: renderText(title, intro, sections, link)\n} }];\n"
+      },
+      "id": "47c15e3d-61b0-4295-a26d-00e036a5b8d8",
+      "name": "Build Sales Booking Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3824,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "tinhbuifff@gmail.com",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "8312d1a1-769f-4fc2-97ce-9dadbf9f0cfb",
+      "name": "Send Email - Notify Sales (new booking)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        4032,
+        976
+      ],
+      "webhookId": "9c085b6b-59cb-4f9d-b693-e0859a1e20ee",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "w6BEx1Rwhk9O2xtX",
+          "name": "Gmail account 34"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"sales_email_sent\": false\n}",
+        "options": {
+          "responseCode": 502
+        }
+      },
+      "id": "1f308514-e81c-4c79-a440-3060f563014a",
+      "name": "Respond - Sales email failed (false, 502)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        4336,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "4LzpONfKZBVArGKg",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "keyValue": "={{ String($('Normalize Payload').first().json.lead_id).trim() + ':booking-sales' }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "={{ String($('Normalize Payload').first().json.lead_id).trim() + ':booking-sales' }}",
+            "status": "SENT",
+            "sent_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "sent_at",
+              "displayName": "sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "3f4bbb38-b67e-46a3-8973-72e10d898949",
+      "name": "Data Table - Mark Sales SENT",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        4256,
+        976
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"sales_email_sent\": true\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "9bd9e1f4-c1b1-409b-a401-ea5c6d4f0cf1",
+      "name": "Respond - Sales email sent (true)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        4480,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst d = $('Normalize Payload').first().json;\nconst br = (d.booking_request && typeof d.booking_request === 'object' && !Array.isArray(d.booking_request)) ? d.booking_request : {};\nconst isValid = (e) => e.length > 0 && e.length <= 254 && /^[^\\s@<>(),;:\"\\\\]+@[^\\s@<>(),;:\"\\\\]+\\.[^\\s@<>(),;:\"\\\\]{2,}$/.test(e);\nconst email = [d.email, d.customer_email, br.email, br.customer_email]\n  .filter(v => typeof v === 'string')\n  .map(v => v.trim())\n  .find(isValid) || '';\nreturn [{ json: { customer_email: email, customer_email_valid: email !== '' } }];\n"
+      },
+      "id": "21b8dcb4-3d5c-47f0-980e-c6769ddcce56",
+      "name": "Resolve Customer Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3376,
+        1376
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "da9f074c-a6db-47fa-b73c-85317d59078a",
+              "leftValue": "={{ $json.customer_email_valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7b9d7796-3c66-4b73-a442-6a3bf31a94eb",
+      "name": "IF - Customer email is valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3600,
+        1376
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"customer_email_sent\": false,\n  \"reason\": \"missing_or_invalid_customer_email\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "e5cbd7ee-b701-4b1b-a2ad-21a470d8faf5",
+      "name": "Respond - No valid customer email (false)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3952,
+        1632
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "4LzpONfKZBVArGKg",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "keyValue": "={{ String($('Normalize Payload').first().json.lead_id).trim() + ':customer' }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "4b2b024b-0ef7-4309-b302-fe5868e8a496",
+      "name": "Data Table - Get Customer Sent Status (lead_id:customer)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        3824,
+        1376
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7de80d24-cf0e-4bf3-84ad-641059699171",
+              "leftValue": "={{ String($json.status ?? '').trim() }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "SENT"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "df7ec2dd-8253-477b-a9a1-a81f5572ff9b",
+      "name": "IF - Customer email already SENT",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4032,
+        1376
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"customer_email_sent\": true\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "fc3d1adb-fc1e-459f-b856-9e56ead3a209",
+      "name": "Respond - Customer already sent (true)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        4336,
+        1248
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');\nconst flat = (v) => {\n  if (v === undefined || v === null) return '';\n  if (Array.isArray(v)) return v.map(x => (x && typeof x === 'object') ? JSON.stringify(x) : String(x)).join(', ');\n  if (typeof v === 'object') return JSON.stringify(v);\n  return String(v);\n};\nconst cap = (v, n = 500) => { const s = flat(v).trim(); return s.length > n ? s.slice(0, n) + '…' : s; };\nconst oneLine = (v, n = 80) => flat(v).replace(/[\\r\\n\\t]+/g, ' ').trim().slice(0, n);\nconst safeLink = (v) => (/^https?:\\/\\/\\S+$/i.test(String(v ?? '').trim()) ? String(v).trim() : '');\n\nconst visibleRows = (rows) => rows.map(([l, v]) => [l, cap(v)]).filter(([, v]) => v !== '');\n\nconst renderHtml = (title, intro, sections, link) => {\n  const parts = ['<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;max-width:640px\">',\n    `<h2 style=\"margin:0 0 8px\">${esc(title)}</h2>`];\n  if (intro) parts.push(`<p style=\"margin:0 0 12px\">${esc(intro)}</p>`);\n  for (const [heading, rows] of sections) {\n    const shown = visibleRows(rows);\n    if (!shown.length) continue;\n    parts.push(`<h3 style=\"margin:16px 0 6px;font-size:15px\">${esc(heading)}</h3>`);\n    parts.push('<table style=\"border-collapse:collapse;width:100%\">');\n    for (const [l, v] of shown) {\n      parts.push(`<tr><td style=\"padding:4px 8px;border:1px solid #ddd;background:#f7f7f7;width:35%\">${esc(l)}</td><td style=\"padding:4px 8px;border:1px solid #ddd\">${esc(v)}</td></tr>`);\n    }\n    parts.push('</table>');\n  }\n  if (link) parts.push(`<p style=\"margin-top:16px\"><a href=\"${esc(link)}\">Mở để xử lý</a></p>`);\n  return parts.concat(['</div>']).join('');\n};\n\nconst renderText = (title, intro, sections, link) => {\n  const lines = [title, ''];\n  if (intro) lines.push(intro, '');\n  for (const [heading, rows] of sections) {\n    const shown = visibleRows(rows);\n    if (!shown.length) continue;\n    lines.push(`== ${heading} ==`);\n    for (const [l, v] of shown) lines.push(`${l}: ${v}`);\n    lines.push('');\n  }\n  if (link) lines.push(`Link xử lý: ${link}`);\n  return lines.join('\\n');\n};\n\nconst d = $('Normalize Payload').first().json;\nconst to = $('Resolve Customer Email').first().json.customer_email;\nconst br = (d.booking_request && typeof d.booking_request === 'object' && !Array.isArray(d.booking_request)) ? d.booking_request : {};\nconst pick = (...keys) => { for (const k of keys) { const v = br[k] ?? d[k]; if (v !== undefined && v !== null && flat(v).trim() !== '') return v; } return ''; };\n\nconst name = oneLine(d.name ?? d.customer_name ?? br.name ?? '', 80);\nconst title = 'Booking của bạn đã được đội ngũ tư vấn xác nhận';\nconst intro = (name ? `Xin chào ${name}, ` : 'Xin chào, ') +\n  'đội ngũ tư vấn VietJourney đã xác nhận booking của bạn.';\n\n// Chỉ hiển thị lại thông tin do backend gửi; không thêm giá, lịch khởi hành, giữ chỗ hay dịch vụ.\nconst sections = [\n  ['Thông tin ghi nhận trong yêu cầu của bạn', [\n    ['Tour', pick('selected_tour_name', 'tour_name')],\n    ['Điểm đến', pick('destination')],\n    ['Ngày đi theo yêu cầu', pick('travel_date')],\n    ['Số người', pick('party_size')],\n    ['Mã tham chiếu', d.lead_id]]]\n];\nconst footer = 'Email này chỉ thông báo rằng Sales đã xác nhận booking. Email không thay thế báo giá hay xác nhận dịch vụ chi tiết; vui lòng dựa vào thông tin do nhân viên tư vấn VietJourney cung cấp trực tiếp cho bạn.';\n\nconst html = renderHtml(title, intro, sections, '').replace(/<\\/div>$/, `<p style=\"margin-top:16px;color:#555\">${esc(footer)}</p></div>`);\nconst text = renderText(title, intro, sections, '') + '\\n\\n' + footer;\n\nreturn [{ json: {\n  email_to: to,\n  email_subject: '[VietJourney] Booking của bạn đã được xác nhận bởi đội ngũ tư vấn',\n  email_html: html,\n  email_text: text\n} }];\n"
+      },
+      "id": "cddad1e3-fcba-4232-9adf-234d622de02a",
+      "name": "Build Customer Confirmation Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4256,
+        1376
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email_to }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "67371742-9550-4733-914b-c0b801b18f4a",
+      "name": "Send Email - Confirm to Customer",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        4480,
+        1376
+      ],
+      "webhookId": "06e1dfc5-c15a-418c-9ddd-cbf7e13705b8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "w6BEx1Rwhk9O2xtX",
+          "name": "Gmail account 34"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"customer_email_sent\": false\n}",
+        "options": {
+          "responseCode": 502
+        }
+      },
+      "id": "b7101bfe-53df-4dbf-a9de-49f64f7a95f9",
+      "name": "Respond - Customer email failed (false, 502)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        4736,
+        1600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "4LzpONfKZBVArGKg",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "keyValue": "={{ String($('Normalize Payload').first().json.lead_id).trim() + ':customer' }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "={{ String($('Normalize Payload').first().json.lead_id).trim() + ':customer' }}",
+            "status": "SENT",
+            "sent_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "sent_at",
+              "displayName": "sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "2c84bc9c-2dfd-403b-aa9a-3ff51a699a18",
+      "name": "Data Table - Mark Customer SENT",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        4704,
+        1376
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"customer_email_sent\": true\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "9d8f2c9e-0d85-43cd-9820-14378b62c01a",
+      "name": "Respond - Customer email sent (true)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        4912,
+        1376
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Giữ đủ trường mà Google Sheets map. Khi Sales xác nhận, backend gửi lại toàn bộ lead,\n// nên mọi ô vẫn có giá trị và không bị ghi đè thành rỗng.\nconst d = $('Normalize Payload').first().json;\nconst br = (d.booking_request && typeof d.booking_request === 'object' && !Array.isArray(d.booking_request)) ? d.booking_request : {};\nconst flat = (v) => {\n  if (v === undefined || v === null) return '';\n  if (Array.isArray(v)) return v.map(x => (x && typeof x === 'object') ? JSON.stringify(x) : String(x)).join(', ');\n  if (typeof v === 'object') return JSON.stringify(v);\n  return String(v);\n};\nconst cap = (v, n = 500) => { const s = flat(v).trim(); return s.length > n ? s.slice(0, n) : s; };\nconst pick = (...vals) => { for (const v of vals) { if (v !== undefined && v !== null && flat(v).trim() !== '') return v; } return ''; };\n\nconst confirmed = String(d.booking_event ?? '').trim() === 'sales_confirmed';\nconst now = new Date().toISOString();\nconst row = {\n  lead_id: cap(d.lead_id, 200),\n  created_at: cap(pick(d.created_at, now), 40),\n  name: cap(pick(d.name, d.customer_name, br.name), 200),\n  email: cap(pick(d.email, d.customer_email, br.email, br.customer_email), 254),\n  phone: cap(pick(d.phone, d.customer_phone, br.phone), 50),\n  destination: cap(pick(br.destination, d.destination)),\n  travel_date: cap(pick(br.travel_date, d.travel_date)),\n  budget: cap(pick(d.budget, d.booking_price_per_person), 40),\n  party_size: cap(pick(br.party_size, d.party_size), 10),\n  selected_tour_name: cap(pick(br.tour_name, br.selected_tour_name, d.selected_tour_name, d.tour_name)),\n  interests: cap(pick(d.interests), 300),\n  note: cap(pick(d.note), 1000),\n  consent_to_contact: cap(pick(d.consent_to_contact), 10),\n  lead_score: cap(pick(d.lead_score), 10),\n  lead_level: cap(pick(d.lead_level), 20),\n  lead_priority: cap(pick(d.lead_priority), 20),\n  care_priority: cap(pick(d.care_priority), 20),\n  customer_segment: cap(pick(d.customer_segment), 40),\n  customer_traits: cap(pick(d.customer_traits), 200),\n  source: cap(pick(d.source)),\n  utm_source: cap(pick(d.utm_source)),\n  utm_medium: cap(pick(d.utm_medium)),\n  utm_campaign: cap(pick(d.utm_campaign)),\n  booking_status: confirmed ? 'SALES_CONFIRMED' : 'REQUESTED',\n  booking_event: cap(pick(d.booking_event, 'booking_request'), 100),\n  requested_at: cap(pick(confirmed ? d.requested_at : now, d.created_at, now), 40),\n  confirmed_at: confirmed ? now : '',\n  updated_at: now,\n};\nreturn [{ json: row }];\n"
+      },
+      "id": "89c144f4-9acd-4d4e-a3ad-30370c79be4d",
+      "name": "Build Booking Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2704,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1m4ehfL1Oa726Jm1TdZ3I8QrfN4p966MWaWm5G-vL6uI/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lead_id": "={{ $json.lead_id }}",
+            "created_at": "={{ $json.created_at }}",
+            "name": "={{ $json.name }}",
+            "email": "={{ $json.email }}",
+            "phone": "={{ $json.phone }}",
+            "destination": "={{ $json.destination }}",
+            "travel_date": "={{ $json.travel_date }}",
+            "budget": "={{ $json.budget }}",
+            "party_size": "={{ $json.party_size }}",
+            "selected_tour_name": "={{ $json.selected_tour_name }}",
+            "interests": "={{ $json.interests }}",
+            "lead_priority": "={{ $json.lead_priority }}",
+            "lead_score": "={{ $json.lead_score }}",
+            "lead_level": "={{ $json.lead_level }}",
+            "customer_segment": "={{ $json.customer_segment }}",
+            "customer_traits": "={{ $json.customer_traits }}",
+            "source": "={{ $json.source }}",
+            "utm_source": "={{ $json.utm_source }}",
+            "utm_medium": "={{ $json.utm_medium }}",
+            "utm_campaign": "={{ $json.utm_campaign }}",
+            "note": "={{ $json.note }}",
+            "consent_to_contact": "={{ $json.consent_to_contact }}",
+            "booking_status": "={{ $json.booking_status }}",
+            "booking_event": "={{ $json.booking_event }}",
+            "requested_at": "={{ $json.requested_at }}",
+            "confirmed_at": "={{ $json.confirmed_at }}",
+            "updated_at": "={{ $json.updated_at }}",
+            "care_priority": "={{ $json.care_priority }}"
+          },
+          "matchingColumns": [
+            "lead_id"
+          ],
+          "schema": [
+            {
+              "id": "lead_id",
+              "displayName": "lead_id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "destination",
+              "displayName": "destination",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "travel_date",
+              "displayName": "travel_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "budget",
+              "displayName": "budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "party_size",
+              "displayName": "party_size",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "selected_tour_name",
+              "displayName": "selected_tour_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "interests",
+              "displayName": "interests",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "lead_priority",
+              "displayName": "lead_priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "lead_score",
+              "displayName": "lead_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "lead_level",
+              "displayName": "lead_level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_segment",
+              "displayName": "customer_segment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_traits",
+              "displayName": "customer_traits",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "utm_source",
+              "displayName": "utm_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "utm_medium",
+              "displayName": "utm_medium",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "utm_campaign",
+              "displayName": "utm_campaign",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "consent_to_contact",
+              "displayName": "consent_to_contact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "booking_status",
+              "displayName": "booking_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "booking_event",
+              "displayName": "booking_event",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "requested_at",
+              "displayName": "requested_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "confirmed_at",
+              "displayName": "confirmed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "care_priority",
+              "displayName": "care_priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false,
+              "canBeUsedToMatch": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "98fb5ca0-bb4c-4364-810c-9820ac1af083",
+      "name": "Google Sheets - Upsert Lead (match lead_id)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2928,
+        624
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "0PnWqisq1nLSXitS",
+          "name": "Google Sheets account 108"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - VietJourney Booking (POST /vietjourney-booking)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Payload": {
+      "main": [
+        [
+          {
+            "node": "IF - Valid lead_id and booking_request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Valid lead_id and booking_request": {
+      "main": [
+        [
+          {
+            "node": "IF - Not LOW/MEDIUM visitor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Invalid payload (400)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Not LOW/MEDIUM visitor": {
+      "main": [
+        [
+          {
+            "node": "Build Booking Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Skipped LOW/MEDIUM (false)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - booking_event is sales_confirmed": {
+      "main": [
+        [
+          {
+            "node": "Resolve Customer Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Data Table - Get Sales Sent Status (lead_id:sales)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Table - Get Sales Sent Status (lead_id:sales)": {
+      "main": [
+        [
+          {
+            "node": "IF - Sales email already SENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Sales email already SENT": {
+      "main": [
+        [
+          {
+            "node": "Respond - Sales already sent (true)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Sales Booking Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Sales Booking Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email - Notify Sales (new booking)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email - Notify Sales (new booking)": {
+      "main": [
+        [
+          {
+            "node": "Data Table - Mark Sales SENT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Sales email failed (false, 502)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Table - Mark Sales SENT": {
+      "main": [
+        [
+          {
+            "node": "Respond - Sales email sent (true)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Customer Email": {
+      "main": [
+        [
+          {
+            "node": "IF - Customer email is valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Customer email is valid": {
+      "main": [
+        [
+          {
+            "node": "Data Table - Get Customer Sent Status (lead_id:customer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - No valid customer email (false)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Table - Get Customer Sent Status (lead_id:customer)": {
+      "main": [
+        [
+          {
+            "node": "IF - Customer email already SENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Customer email already SENT": {
+      "main": [
+        [
+          {
+            "node": "Respond - Customer already sent (true)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Customer Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Customer Confirmation Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email - Confirm to Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email - Confirm to Customer": {
+      "main": [
+        [
+          {
+            "node": "Data Table - Mark Customer SENT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Customer email failed (false, 502)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Table - Mark Customer SENT": {
+      "main": [
+        [
+          {
+            "node": "Respond - Customer email sent (true)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Booking Row": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Upsert Lead (match lead_id)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Upsert Lead (match lead_id)": {
+      "main": [
+        [
+          {
+            "node": "IF - booking_event is sales_confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d59cc07e-a1db-4457-b722-898495e799a4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "58cc480580f302b31ac8c42d470df5c3cc7abec35d99098288a5a3ac3b56a449"
+  },
+  "id": "LDOB67YIaL5KqPIS",
+  "tags": [
+    {
+      "updatedAt": "2025-06-22T09:15:57.882Z",
+      "createdAt": "2025-06-22T09:15:57.882Z",
+      "id": "07Ic7Vs1OIPjK5ul",
+      "name": "AI"
+    }
+  ]
+}

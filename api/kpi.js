@@ -1,5 +1,7 @@
-import { send } from './_shared.js';
-import { supabase } from './_supabase.js';
+import { send } from '../lib/_shared.js';
+import { tierOutcomes } from '../lib/_outcomes.js';
+import { leadQuality } from '../lib/_outcomes_quality.js';
+import { supabase } from '../lib/_supabase.js';
 
 const WINDOW_DAYS = 180;
 const PAGE_SIZE = 1000;
@@ -47,7 +49,7 @@ export default async function handler(req, res) {
         'leads',
         'created_at',
         since,
-        'lead_id,created_at,lead_status,lead_level,utm_source,selected_tour_id',
+        'lead_id,created_at,lead_status,lead_level,utm_source,selected_tour_id,lead_source',
         'created_at.asc,lead_id.asc',
       ),
       supabase('rpc/get_website_visitor_kpis', {
@@ -98,6 +100,8 @@ export default async function handler(req, res) {
       by_status: countBy('lead_status'),
       by_level: countBy('lead_level'),
       by_source: countBy('utm_source'),
+      funnel_by_tier: tierOutcomes(rows),
+      lead_quality: leadQuality(rows),
       visitor_by_priority: visitorStats.by_priority,
       visitor_by_source: visitorStats.by_source,
       visitor_by_temperature: visitorStats.by_temperature,

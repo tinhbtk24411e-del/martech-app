@@ -1,6 +1,6 @@
 
-import { tours } from './_shared.js';
-import { normalizePlannerPlan, parsePlannerContent } from './_planner.js';
+import { tours } from '../lib/_shared.js';
+import { normalizePlannerPlan, parsePlannerContent } from '../lib/_planner.js';
 
 export const config = {
   maxDuration: 300,

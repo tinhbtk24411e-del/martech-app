@@ -1,12 +1,13 @@
-import { clean, list, method, number, send, tours, utmFields } from './_shared.js';
-import { scoreLead, understandCustomer } from './_scoring.js';
-import { supabase, supabaseErrorCode } from './_supabase.js';
-import { deliverToAutomation, updateNotificationStatus } from './_notify.js';
+import { clean, list, method, number, send, tours, utmFields } from '../lib/_shared.js';
+import { careTier, scoreLead, understandCustomer } from '../lib/_scoring.js';
+import { supabase, supabaseErrorCode } from '../lib/_supabase.js';
+import { deliverToAutomation, updateNotificationStatus } from '../lib/_notify.js';
 
 export const config = { api: { bodyParser: { sizeLimit: '16kb' } } };
 
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
 const OPTIONAL_LEAD_COLUMNS = [
+  'care_priority',
   'score_signals',
   'customer_segment',
   'customer_traits',
@@ -255,6 +256,7 @@ export default async function handler(req, res) {
       lead_source: 'booking_form',
       lead_score: scored.score,
       lead_level: scored.level,
+      care_priority: careTier({ bookingRequest: b.booking_request === true, selectedTourId: selected?.id || null }),
       lead_priority: 'HIGH',
       score_signals: scored.signals,
       customer_segment: understanding.segment,

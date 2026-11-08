@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { scoreLead, understandCustomer } from '../api/_scoring.js';
+import { scoreLead, understandCustomer } from '../lib/_scoring.js';
 
 test('scores booking request, selected tour, views, and return visits with capped signals', () => {
   assert.deepEqual(scoreLead(), {

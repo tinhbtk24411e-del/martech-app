@@ -1,12 +1,12 @@
-import { secretMatches, send } from './_shared.js';
-import { supabase } from './_supabase.js';
+import { secretMatches, send } from '../lib/_shared.js';
+import { supabase } from '../lib/_supabase.js';
 import {
   claimBookingConfirmation,
   deliverBookingConfirmation,
   deliverToAutomation,
   updateBookingConfirmationStatus,
   updateNotificationStatus,
-} from './_notify.js';
+} from '../lib/_notify.js';
 
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 20;

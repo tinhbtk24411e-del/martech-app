@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import handler from '../api/lead-status.js';
-import { canTransition } from '../api/_shared.js';
+import { canTransition } from '../lib/_shared.js';
 import { createResponse, json, withEnv, withFetch } from './helpers.mjs';
 
 const LEAD_ID = '6f1d2c3a-1111-4222-8333-444455556666';

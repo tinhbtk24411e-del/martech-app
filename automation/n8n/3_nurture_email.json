@@ -1,0 +1,213 @@
+{
+  "name": "VietJourney - 3. Nurture Email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vietjourney-nurture",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "id": "2e7c10e1-6c49-4507-a968-d75c24731abb",
+      "name": "Nurture Webhook",
+      "webhookId": "ddf8a784-b538-4fd8-9175-68e81c0950f1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "yKR4iIHLQjZhBWvy",
+          "name": "VietJourney Webhook Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $input.first().json.body ?? $input.first().json;\nconst esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');\nconst str = (v, n = 200) => String(v ?? '').trim().slice(0, n);\nconst safeLink = (v) => (/^https?:\\/\\/\\S+$/i.test(str(v, 800)) ? str(v, 800) : '');\nconst isEmail = (e) => e.length > 0 && e.length <= 254 && /^[^\\s@<>(),;:\"\\\\]+@[^\\s@<>(),;:\"\\\\]+\\.[^\\s@<>(),;:\"\\\\]{2,}$/.test(e);\n\nconst email = str(b.email, 254);\nconst dest = str(b.destination, 100) || 'điểm đến bạn quan tâm';\nconst name = str(b.name, 120) || 'bạn';\nconst tour = str(b.selected_tour_name, 160);\nconst optOut = safeLink(b.opt_out_url);\n\n// Mở đầu theo nhóm khách (customer_segment). Không có nhóm thì dùng mặc định.\nconst openers = {\n  family: 'Chuyến đi gia đình cần lịch trình nhẹ nhàng, nhiều điểm dừng thoải mái.',\n  budget: 'Chúng tôi chọn các lựa chọn tối ưu chi phí nhưng vẫn đủ trải nghiệm.',\n  resort: 'Với mong muốn nghỉ dưỡng, các gợi ý dưới đây tập trung vào lưu trú và thư giãn.',\n  explorer: 'Với tinh thần khám phá, các gợi ý dưới đây có nhiều hoạt động ngoài trời.',\n  general: 'Dưới đây là vài gợi ý để bạn tham khảo.',\n};\nconst opener = openers[str(b.customer_segment, 40)] || openers.general;\n\nconst copy = {\n  itinerary_delivery: { subject: `Lịch trình ${dest} của bạn từ VietJourney`,\n    body: 'Đây là lịch trình tham khảo bạn đã yêu cầu. Giá trong lịch trình chỉ mang tính mô phỏng, chưa phải báo giá chính thức.' },\n  tour_suggestions: { subject: `VietJourney - Gợi ý tour ${dest}`,\n    body: `Chúng tôi đã chọn sẵn vài lựa chọn cho chuyến đi ${dest}.` + (tour ? ` Bạn đã từng quan tâm tới: ${tour}.` : '') },\n  destination_guide: { subject: `Có gì đáng đi ở ${dest}?`,\n    body: `Những điểm nổi bật và thời điểm đẹp nhất để đi ${dest}, để bạn cân nhắc lịch trình.` },\n  trip_checklist: { subject: `Chuẩn bị cho chuyến đi ${dest}`,\n    body: 'Danh sách việc nên chuẩn bị trước chuyến đi: giấy tờ, thời tiết, trang phục, thuốc cá nhân.' },\n  intent_check: { subject: `Bạn còn dự định đi ${dest} không?`,\n    body: 'Nếu bạn vẫn muốn đi, chỉ cần trả lời email này, chúng tôi sẽ hỗ trợ ngay.' },\n  close_file: { subject: 'VietJourney - Hẹn gặp lại khi bạn sẵn sàng',\n    body: 'Chúng tôi sẽ không gửi thêm email nuôi dưỡng. Khi bạn cần, hãy quay lại bất cứ lúc nào.' },\n};\nconst action = str(b.action, 40);\nconst item = copy[action];\n\n// Không gửi nếu thiếu email hợp lệ, action lạ, hoặc thiếu link hủy nhận (bắt buộc theo quy định).\nlet reason = '';\nif (!isEmail(email)) reason = 'missing_or_invalid_email';\nelse if (!item) reason = 'unknown_action';\nelse if (!optOut) reason = 'missing_opt_out_url';\n\nconst html = reason ? '' :\n  '<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;max-width:640px\">' +\n  `<h2 style=\"margin:0 0 10px\">Xin chào ${esc(name)},</h2>` +\n  `<p style=\"margin:0 0 12px\">${esc(opener)}</p>` +\n  `<p style=\"margin:0 0 12px\">${esc(item.body)}</p>` +\n  (action === 'itinerary_delivery' && str(b.plan_summary, 2000) ? `<pre style=\"white-space:pre-wrap;background:#f7f4ee;padding:12px;border-radius:8px\">${esc(str(b.plan_summary, 2000))}</pre>` : '') +\n  '<p style=\"margin:24px 0 0;font-size:12px;color:#777\">Bạn không muốn nhận email nuôi dưỡng? ' +\n  `<a href=\"${esc(optOut)}\">Hủy nhận email</a>.</p>` +\n  '<p style=\"margin:16px 0 0\">Trân trọng,<br><b>VietJourney Tours</b></p></div>';\n\nreturn [{ json: {\n  lead_id: str(b.lead_id, 80),\n  email_to: reason ? '' : email,\n  email_subject: reason ? '' : item.subject,\n  email_html: html,\n  skip_reason: reason,\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "id": "4d396cd9-20ef-420c-853b-ba586f2a0eea",
+      "name": "Build Nurture Email"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0799eece-7764-426d-b6bc-781bee194075",
+              "leftValue": "={{ $json.email_to }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        300
+      ],
+      "id": "3b66b2d5-5ebd-4a53-bcc9-325d1db83573",
+      "name": "IF - Can Send"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email_to }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        220
+      ],
+      "id": "ad203ce3-3681-4939-8003-24a375224628",
+      "name": "Send Email - Nurture",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "w6BEx1Rwhk9O2xtX",
+          "name": "Gmail account 34"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { email_sent: true, lead_id: $('Build Nurture Email').item.json.lead_id } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        140
+      ],
+      "id": "754a33db-71bf-4c65-8341-04a1453ef325",
+      "name": "Respond - Nurture sent"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { email_sent: false, lead_id: $('Build Nurture Email').item.json.lead_id, error: 'gmail_failed' } }}",
+        "options": {
+          "responseCode": 502
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        300
+      ],
+      "id": "b28758bb-d1ad-4c20-91b3-de3211277d84",
+      "name": "Respond - Nurture failed (502)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { email_sent: false, lead_id: $json.lead_id, reason: $json.skip_reason } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        420
+      ],
+      "id": "7db86170-7527-4503-8449-fe29d23f879f",
+      "name": "Respond - Not sent (no email)"
+    }
+  ],
+  "connections": {
+    "Nurture Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build Nurture Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Nurture Email": {
+      "main": [
+        [
+          {
+            "node": "IF - Can Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Can Send": {
+      "main": [
+        [
+          {
+            "node": "Send Email - Nurture",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Not sent (no email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email - Nurture": {
+      "main": [
+        [
+          {
+            "node": "Respond - Nurture sent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Nurture failed (502)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

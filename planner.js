@@ -383,14 +383,6 @@ function appendChatMessage(text, sender = 'bot') {
   return message;
 }
 
-function addConsultLink() {
-  const link = document.createElement('a');
-  link.className = 'chat-consult-link';
-  link.href = 'index.html#contact';
-  link.textContent = 'Nhờ VietJourney tư vấn hành trình này →';
-  $('#chatMessages').append(link);
-}
-
 function continueWithPromotion(voucherCode) {
   try {
     sessionStorage.setItem('vietjourney_voucher_code', voucherCode);
@@ -458,7 +450,6 @@ async function sendChatMessage(query) {
     );
     chatConversation = chatConversation.slice(-10);
     appendChatMessage(reply);
-    addConsultLink();
     const visitor = await recordVisitorEvent('ai_used');
     showPromotion(visitor?.temperature || 'WARM', continueWithPromotion);
   } catch (error) {
@@ -577,3 +568,53 @@ $$('nav a').forEach((link) => {
 });
 
 updatePlannerDateLabels();
+
+// Lead magnet: send this itinerary to the visitor's email (creates a COLD nurture lead).
+function itineraryText(plan) {
+  const days = dateRange().length;
+  const lines = plan.days.map((day, index) => (
+    `Ngày ${index + 1}: ${day.activities.map((a) => `${a.time} ${a.name}`).join('; ')}`
+  ));
+  return `${plan.destination} · ${days} ngày ${Math.max(0, days - 1)} đêm\n${lines.join('\n')}\n` +
+    `Dự toán (mô phỏng, chưa xác nhận): ${formatPlannerMoney(plan.costs.total)} cả đoàn.`;
+}
+
+$('#itineraryEmailForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!currentPlan) return;
+  const form = event.currentTarget;
+  const submit = form.querySelector('button[type="submit"]');
+  const status = $('#itineraryStatus');
+  const days = dateRange().length;
+  submit.disabled = true;
+  status.textContent = 'Đang gửi lịch trình...';
+  try {
+    const response = await fetch('/api/itinerary-capture', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: $('#itineraryName').value.trim(),
+        email: $('#itineraryEmail').value.trim(),
+        consent_to_contact: $('#itineraryConsent').checked,
+        destination: currentPlan.destination,
+        duration_days: days,
+        budget: Number($('#plannerBudget').value) || null,
+        party_size: Number($('#plannerGuestCount').value) || 1,
+        plan_summary: itineraryText(currentPlan),
+        utm_source: 'planner',
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'failed');
+    status.textContent = data.duplicate
+      ? 'Bạn đã yêu cầu lịch trình này gần đây. Kiểm tra hộp thư của bạn.'
+      : (data.notification_status === 'SENT'
+        ? 'Đã gửi lịch trình. Hãy kiểm tra hộp thư của bạn.'
+        : 'Đã ghi nhận. Lịch trình sẽ được gửi trong ít phút.');
+  } catch (error) {
+    status.textContent = error.message && error.message !== 'failed'
+      ? error.message : 'Chưa gửi được lịch trình. Vui lòng thử lại.';
+  } finally {
+    submit.disabled = false;
+  }
+});

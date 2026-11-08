@@ -1,5 +1,5 @@
-import { secretMatches, send } from './_shared.js';
-import { supabase } from './_supabase.js';
+import { secretMatches, send } from '../lib/_shared.js';
+import { supabase } from '../lib/_supabase.js';
 
 const BOOKING_SELECT = [
   'lead_id',

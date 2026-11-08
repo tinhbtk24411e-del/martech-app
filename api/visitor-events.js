@@ -1,5 +1,5 @@
-import { clean, method, send } from './_shared.js';
-import { supabase, supabaseErrorCode } from './_supabase.js';
+import { clean, method, send } from '../lib/_shared.js';
+import { supabase, supabaseErrorCode } from '../lib/_supabase.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EVENTS = [

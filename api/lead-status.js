@@ -1,10 +1,10 @@
-import { LEAD_STATUSES, canTransition, clean, secretMatches, send } from './_shared.js';
-import { supabase } from './_supabase.js';
+import { LEAD_STATUSES, canTransition, clean, secretMatches, send } from '../lib/_shared.js';
+import { supabase } from '../lib/_supabase.js';
 import {
   claimBookingConfirmation,
   deliverBookingConfirmation,
   updateBookingConfirmationStatus,
-} from './_notify.js';
+} from '../lib/_notify.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

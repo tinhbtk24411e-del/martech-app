@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePlannerPlan, parsePlannerContent } from '../api/_planner.js';
+import { normalizePlannerPlan, parsePlannerContent } from '../lib/_planner.js';
 
 const trip = { days: 2, nights: 1, guests: 3, budget: 3000000 };
 const samplePlan = {

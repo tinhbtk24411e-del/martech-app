@@ -94,6 +94,15 @@
             <div><p class="eyebrow">ĐIỂM ĐẾN ĐƯỢC AI ĐỀ XUẤT</p><h1 id="plannerDestinationName"></h1><p id="plannerDestinationDates"></p><span id="plannerDestinationSummary"></span></div>
             <a class="destination-edit" href="index.html#contact" aria-label="Chỉnh sửa yêu cầu">✎</a>
           </section>
+      <form id="itineraryEmailForm" class="lead-form itinerary-email" autocomplete="on">
+        <p class="eyebrow">NHẬN LỊCH TRÌNH</p>
+        <h3>Gửi lịch trình này về email của bạn</h3>
+        <label>Họ và tên<input id="itineraryName" name="name" maxlength="120" required autocomplete="name"></label>
+        <label>Email<input id="itineraryEmail" name="email" type="email" maxlength="160" required autocomplete="email"></label>
+        <label class="consent"><input id="itineraryConsent" type="checkbox" required> Tôi đồng ý nhận lịch trình này và các email gợi ý tour từ VietJourney. Tôi có thể hủy nhận bất cứ lúc nào.</label>
+        <button class="button teal" type="submit">Gửi lịch trình về email</button>
+        <p id="itineraryStatus" role="status" aria-live="polite"></p>
+      </form>
           <section id="planner-itinerary" class="planner-day-map">
             <div class="planner-itinerary">
               <div class="planner-section-heading"><h2><span>✈</span> Lịch trình của bạn</h2><a href="index.html#contact">Chỉnh sửa ✎</a></div>

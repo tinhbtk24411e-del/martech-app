@@ -1,0 +1,92 @@
+{
+  "info": {
+    "name": "VietJourney n8n Test (đơn giản)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "n8n_base",
+      "value": "https://YOUR-N8N.app.n8n.cloud"
+    },
+    {
+      "key": "secret",
+      "value": "PASTE_SECRET_HERE"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Gửi lead (form tư vấn)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Automation-Secret",
+            "value": "{{secret}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"lead_id\": \"{{$guid}}\",\n  \"name\": \"Test Postman\",\n  \"email\": \"your-test-inbox@example.com\",\n  \"contact\": \"your-test-inbox@example.com\",\n  \"destination\": \"Đà Lạt\",\n  \"duration\": 3,\n  \"budget\": 3000000,\n  \"party_size\": 2,\n  \"selected_tour_id\": \"da-lat-3n2d\",\n  \"selected_tour_name\": \"Đà Lạt 3N2Đ\",\n  \"lead_score\": 55,\n  \"lead_level\": \"WARM\",\n  \"consent_to_contact\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{n8n_base}}/webhook/vietjourney-lead"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Gửi booking (xác nhận đặt tour)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Automation-Secret",
+            "value": "{{secret}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"lead_id\": \"{{$guid}}\",\n  \"name\": \"Test Postman\",\n  \"email\": \"your-test-inbox@example.com\",\n  \"destination\": \"Đà Lạt\",\n  \"party_size\": 2,\n  \"selected_tour_name\": \"Đà Lạt 3N2Đ\",\n  \"booking_price_per_person\": 7600000,\n  \"consent_to_contact\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{n8n_base}}/webhook/vietjourney-booking"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
