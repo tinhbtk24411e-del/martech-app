@@ -1,4 +1,4 @@
-import { recordVisitorEvent } from './visitor-tracking.js';
+import { getVisitorUtm, recordVisitorEvent } from './visitor-tracking.js';
 import { showPromotion } from './promo-offers.js';
 recordVisitorEvent('visit');
 
@@ -601,7 +601,7 @@ $('#itineraryEmailForm').addEventListener('submit', async (event) => {
         budget: Number($('#plannerBudget').value) || null,
         party_size: Number($('#plannerGuestCount').value) || 1,
         plan_summary: itineraryText(currentPlan),
-        utm_source: 'planner',
+        ...getVisitorUtm(),
       }),
     });
     const data = await response.json().catch(() => ({}));

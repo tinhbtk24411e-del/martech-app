@@ -14,7 +14,7 @@ Nút **Đặt tour** từ tour đang hoạt động mở form yêu cầu đặt 
 
 ## Visitor ẩn danh và UTM
 
-Trang chủ và trang AI planner ghi nhận lượt truy cập bằng UUID lưu trên trình duyệt, hết hạn sau 7 ngày không truy cập; gửi event `visit` khi mở trang và `ai_used` khi AI trả lời thành công. Không gửi IP, nội dung hội thoại hoặc dữ liệu liên hệ. UTM được giữ trong phiên tab để nối nguồn vào lead. Các event hành vi gồm xem chi tiết/giá tour, lưu tour, click đặt, thời gian hoạt động trên 2 phút, quay lại và bắt đầu booking chỉ được gửi khi khách chọn đồng ý theo dõi tùy chọn. Event `booking_submitted` được ghi nhận phía máy chủ khi form booking hợp lệ được gửi; các tín hiệu chi tiết của form chỉ được thêm vào hồ sơ visitor khi khách đã đồng ý theo dõi hành vi. Các source quảng cáo `facebook`, `tiktok`, `instagram` được tách riêng; thiếu UTM là `direct`, source khác được nhóm `other`.
+Trang chủ và trang AI planner chỉ ghi nhận lượt truy cập, dùng AI và các event hành vi sau khi khách chọn đồng ý theo dõi tùy chọn; UUID ẩn danh hết hạn sau 7 ngày không truy cập. Không gửi IP, nội dung hội thoại hoặc dữ liệu liên hệ vào visitor events. UTM được giữ trong phiên tab để nối nguồn vào lead khi khách tự gửi form có consent liên hệ, độc lập với consent theo dõi hành vi. Event booking được ghi phía máy chủ nhưng chỉ gắn với visitor nếu có behavior consent. Các source quảng cáo `facebook`, `tiktok`, `instagram` được tách riêng; thiếu UTM là `direct`, source khác được nhóm `other`.
 
 Nhiệt độ visitor dựa trên hành vi: tối đa 3 lượt xem tour × 5; xem giá +10; ở lại quá 2 phút +5; quay lại +10; lưu tour +10; mở khu vực đặt tour +15; dùng AI +15; số điện thoại +10; ngày đi trong 90 ngày +15; có ngân sách +10; chọn tour +10; nhóm nhiều hơn một khách +5. HOT từ 70 điểm hoặc đã bắt đầu/gửi booking; WARM từ 40 điểm hoặc đã xem chi tiết/giá, quay lại, lưu tour, click đặt hay dùng AI; còn lại COLD. Lead booking được chấm riêng: 35 điểm booking + 20 điểm tour đã chọn + tối đa 15 điểm lượt xem tour; vì vậy booking hợp lệ bắt đầu ở WARM và có thể lên HOT. Điểm hành vi visitor không ghi đè điểm lead booking. Funnel KPI gồm visitor, visitor đã tương tác, bắt đầu booking (chỉ khi có consent theo dõi hành vi) và booking đã gửi. Chạy `docs/supabase-schema.sql` để tạo/cập nhật bảng `website_visitors`, RPC ghi nhận và RPC tổng hợp. `GET /api/kpi` tổng hợp traffic theo funnel, nhiệt độ visitor và UTM source.
 
@@ -68,7 +68,7 @@ Không gửi PII vào `/api/aichat`. API không bịa giá hoặc tình trạng 
 - Frontend đọc và giữ trạng thái UTM trong `sessionStorage` trong suốt quá trình đặt tour.
 - Khi khách hàng gửi lead, payload bao gồm `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` nếu có.
 - Máy chủ hợp lệ hóa và lưu chúng vào Supabase khi cột tồn tại; nếu không, hãy dùng migration trong `docs/supabase-schema.sql`.
-- Ngoài UTM, hệ thống còn lưu `source`, `lead_score`, `lead_level`, `score_signals`, `customer_segment`, `customer_traits`, `voucher_code`, `voucher_status`, `voucher_channel` để n8n và Google Sheets phân loại khách, gửi voucher và báo hiệu cho Sales.
+- Ngoài UTM, hệ thống còn lưu `source`, `lead_score`, `lead_level`, `score_signals`, `customer_segment`, `customer_traits`, `voucher_code`, `voucher_status`, `voucher_channel` để backend/n8n phân loại khách, gửi voucher và báo hiệu cho Sales. Supabase là nguồn dữ liệu vận hành duy nhất; Google Sheets chỉ phục vụ phân tích qua export/synchronization riêng nếu có.
 - `source` thường là `facebook`, `tiktok`, `google`, `website`, `instagram` tùy kênh marketing.
 
 ## n8n workflow gợi ý
@@ -122,7 +122,9 @@ Lưu ý về lịch Cron: gói Hobby của Vercel chỉ cho chạy cron tối đ
 
 ## v5: thu lead từ AI Planner và nuôi dưỡng
 
-`POST /api/itinerary-capture` nhận yêu cầu "gửi lịch trình về email" từ AI Planner. Đây không phải yêu cầu tư vấn. Body: `name`, `email`, `consent_to_contact` (bắt buộc `true`), `destination`, `duration_days`, `budget`, `party_size`, `plan_summary`, `utm_source`.
+`POST /api/itinerary-capture` nhận yêu cầu "gửi lịch trình về email" từ AI Planner. Đây không phải yêu cầu tư vấn. Body: `name`, `email`, `consent_to_contact` (bắt buộc `true`), `destination`, `duration_days`, `budget`, `party_size`, `plan_summary` và đủ năm trường UTM nếu có. Attribution acquisition được lưu ở `utm_*`; `lead_source=itinerary_capture` xác định kênh thu lead. Không có UTM được ghi là `utm_source=direct`; source lạ được chuẩn hóa thành `other`. API không cập nhật UTM của lead trùng.
+
+`POST /api/consultations` ghi nhận yêu cầu tư vấn WARM, cần tên, email, tour đang hoạt động đã chọn và consent liên hệ; ngày đi và số khách có thể để trống. API lưu `lead_source=consultation_form`, `care_priority=WARM`, `lead_status=NEW` vào Supabase rồi gọi `N8N_LEAD_WEBHOOK_URL`. Chỉ phản hồi `notification_status=SENT` khi n8n trả `{ notification_sent: true, lead_id }` khớp lead vừa gửi và Supabase xác nhận cập nhật trạng thái. Yêu cầu trùng email + tour trong 24 giờ không tạo lead/email mới.
 
 Kết quả: tạo lead `lead_source = itinerary_capture`, `care_priority = COLD`, `nurture_step = 0`, gửi lịch trình qua workflow nuôi dưỡng với `action = itinerary_delivery`. Cùng email và điểm đến trong 24 giờ trả `duplicate: true`, không tạo lead mới và không gửi lại. Nếu n8n không xác nhận, lead giữ `notification_status = PENDING`.
 

@@ -71,6 +71,38 @@ test('valid request creates a COLD nurture lead and delivers the itinerary', asy
   assert.equal(m.patches.at(-1).notification_status, 'SENT');
 });
 
+test('preserves the original campaign through the planner lead and nurture webhook', async () => {
+  const inserted = [];
+  const m = mockFor({ inserted });
+  const res = await run('10.1.0.8', body({
+    utm_source: 'facebook', utm_medium: 'paid_social', utm_campaign: 'summer_escape',
+    utm_content: 'carousel_1', utm_term: 'vietnam_tours',
+  }), m.fn);
+  assert.equal(res.statusCode, 201);
+  assert.equal(inserted[0].utm_source, 'facebook');
+  assert.equal(inserted[0].utm_medium, 'paid_social');
+  assert.equal(inserted[0].utm_campaign, 'summer_escape');
+  assert.equal(inserted[0].utm_content, 'carousel_1');
+  assert.equal(inserted[0].utm_term, 'vietnam_tours');
+  assert.equal(inserted[0].lead_source, 'itinerary_capture');
+  assert.equal(inserted[0].source, 'itinerary_capture');
+  assert.equal(m.webhookPayloads[0].capture_channel, 'itinerary_capture');
+  assert.equal(m.webhookPayloads[0].utm_source, 'facebook');
+  assert.equal(m.webhookPayloads[0].utm_campaign, 'summer_escape');
+  assert.equal(m.webhookPayloads[0].utm_content, 'carousel_1');
+  assert.equal(m.webhookPayloads[0].utm_term, 'vietnam_tours');
+});
+
+test('uses direct when no acquisition source is supplied', async () => {
+  const inserted = [];
+  const m = mockFor({ inserted });
+  const res = await run('10.1.0.9', body(), m.fn);
+  assert.equal(res.statusCode, 201);
+  assert.equal(inserted[0].utm_source, 'direct');
+  assert.equal(inserted[0].utm_medium, null);
+  assert.equal(inserted[0].utm_campaign, null);
+});
+
 test('allows the current Vercel deployment origin but rejects other origins', async () => {
   const inserted = [];
   const m = mockFor({ inserted });

@@ -56,6 +56,7 @@ test('KPI endpoint aggregates every Supabase page without returning lead details
     }
     assert.match(requestUrl, /^https:\/\/supabase\.example\/rest\/v1\/leads\?/);
     assert.match(requestUrl, /order=created_at\.asc,lead_id\.asc/);
+    assert.match(requestUrl, /request_id=not\.like\.DEMO-\*/);
     requestedRanges.push(options.headers.Range);
     assert.equal(options.headers['Range-Unit'], 'items');
     const page = options.headers.Range === '0-999' ? pageOne : pageTwo;

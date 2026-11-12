@@ -631,9 +631,11 @@ $('#leadForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   if (!form.reportValidity()) return;
+  const isConsultation = event.submitter?.value === 'consultation';
   const payload = fieldData(form);
-  payload.visitor_id = getVisitorId();
-  payload.booking_request = true;
+  payload.visitor_id = behaviorTrackingConsent ? getVisitorId() : null;
+  payload.booking_request = !isConsultation;
+  payload.consultation_request = isConsultation;
   payload.consent_to_contact = form.elements.consent_to_contact.checked;
   payload.interests = values('#leadInterests');
   if (!payload.selected_tour_id) {
@@ -641,7 +643,7 @@ $('#leadForm').addEventListener('submit', async (event) => {
     $('#tours').scrollIntoView({ behavior: 'smooth' });
     return;
   }
-  markBookingStarted();
+  if (!isConsultation) markBookingStarted();
 
   const email = String(payload.email || '').trim();
   const phone = String(payload.phone || '').trim();
@@ -661,12 +663,12 @@ $('#leadForm').addEventListener('submit', async (event) => {
   payload.voucher_channel = payload.voucher_channel || 'email';
   payload.voucher_code = activeVoucherCode;
 
-  const submitButton = $('#leadSubmit');
+  const submitButton = event.submitter || $('#leadSubmit');
   submitButton.disabled = true;
   setMessage(form, 'Đang gửi yêu cầu…', true);
 
   try {
-    const response = await fetch('/api/leads', {
+    const response = await fetch(isConsultation ? '/api/consultations' : '/api/leads', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -677,6 +679,7 @@ $('#leadForm').addEventListener('submit', async (event) => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Không thể gửi yêu cầu. Vui lòng thử lại.');
 
+    const requestText = isConsultation ? 'yêu cầu tư vấn' : 'yêu cầu đặt tour';
     const emailMessage = data.notification_status === 'SENT'
       ? ' Email xác nhận đã nhận yêu cầu đã được gửi cho bạn; Sales cũng đã nhận thông báo. Email xác nhận booking sẽ gửi sau khi Sales chốt.'
       : data.notification_status === 'FAILED'
@@ -684,10 +687,10 @@ $('#leadForm').addEventListener('submit', async (event) => {
         : ' Yêu cầu đã lưu; hệ thống đang gửi email cho bạn và thông báo tới Sales.';
     setMessage(
       form,
-      `Đã ghi nhận yêu cầu đặt tour. Ngày đi và tình trạng chỗ vẫn cần Sales xác nhận.${emailMessage} Mã yêu cầu: ${data.lead_id}`,
+      `Đã ghi nhận ${requestText}.${isConsultation ? ' Đây chưa phải yêu cầu đặt tour.' : ' Ngày đi và tình trạng chỗ vẫn cần Sales xác nhận.'}${emailMessage} Mã yêu cầu: ${data.lead_id}`,
       data.notification_status === 'SENT' ? true : 'warning',
     );
-    updateFunnelExperience('HOT');
+    if (!isConsultation) updateFunnelExperience('HOT');
     form.reset();
     activeVoucherCode = '';
     try {
@@ -702,6 +705,17 @@ $('#leadForm').addEventListener('submit', async (event) => {
   } finally {
     submitButton.disabled = false;
   }
+});
+
+$('#consultSubmit').addEventListener('click', () => {
+  $('#travelDateField input').required = false;
+  $('#partySizeField input').required = false;
+  $('#contactConsentText').textContent = 'Tôi đồng ý để VietJourney xử lý yêu cầu tư vấn và liên hệ với tôi.';
+});
+$('#leadSubmit').addEventListener('click', () => {
+  $('#travelDateField input').required = true;
+  $('#partySizeField input').required = true;
+  $('#contactConsentText').textContent = 'Tôi đồng ý để VietJourney xử lý yêu cầu đặt tour và liên hệ xác nhận.';
 });
 
 $('.menu').onclick = (event) => {

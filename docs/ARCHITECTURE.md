@@ -18,7 +18,7 @@
 
 ## Luồng dữ liệu
 
-Website → `api/leads.js` → Supabase (`leads`) → `lib/_notify.js` → n8n webhook → Gmail (khách, sales) → n8n trả `notification_sent` → backend ghi `notification_status`.
+Website / AI Planner → Vercel API → Supabase (nguồn dữ liệu vận hành duy nhất cho lead, UTM, CRM và booking). Backend events → n8n → Gmail (Sales/customer theo sự kiện) → API chỉ cập nhật notification status khi nhận xác nhận rõ ràng. Yêu cầu tư vấn tạo WARM lead; booking tạo HOT; nhận lịch trình tạo COLD. Google Sheets không nằm trong luồng capture; dashboard tách dữ liệu operational từ Supabase và các KPI scenario mô phỏng.
 
 Nurture & retry: Vercel Cron gọi `api/nurture.js` mỗi ngày để gửi bước nuôi dưỡng đến hạn, sau đó gọi `api/retry-notifications.js` để gửi lại thông báo booking hoặc email xác nhận đang `PENDING`/`FAILED`.
 
@@ -57,6 +57,6 @@ Chỉ áp dụng cho lead WARM và COLD còn ở trạng thái NEW, có consent,
 
 ## Giới hạn hiện tại (ghi rõ khi bảo vệ)
 
-- Lead WARM hiện chưa có nguồn: form tư vấn đã bỏ, và đặt tour luôn là HOT. Chỉ lead COLD đến từ lịch trình qua email.
+- WARM lead đến từ form yêu cầu tư vấn và chỉ được lưu khi có consent, tour được chọn; workflow n8n cần activation/credential mapping trên instance thật.
 - Chưa có bằng chứng gửi/nhận email bằng mailbox thật hoặc Google Sheets production. Cần chạy checklist trong `automation/n8n/README.md` trước khi demo chính thức.
-- Chưa có Google Sheets, Schedule nhắc SLA, chuỗi chăm sóc, và voucher.
+- Chưa có luồng export/synchronization tự động từ Supabase sang Google Sheets; không thuộc luồng capture mặc định.

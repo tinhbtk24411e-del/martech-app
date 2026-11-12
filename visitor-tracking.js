@@ -144,18 +144,19 @@ export function setBehaviorTrackingConsent(enabled) {
     engagementTimer = undefined;
     timerStarted = false;
     visibleSeconds = 0;
+    visitorId = undefined;
+    try { localStorage.removeItem(VISITOR_ID_KEY); } catch { /* storage is optional */ }
     return;
   }
 
+  void recordVisitorEvent('visit');
   startEngagementTimer(getVisitorId(), getUtm());
 }
 
 export async function recordVisitorEvent(event) {
-  const consentRequired = [
-    'tour_detail_view', 'pricing_view', 'engaged_2m',
-    'return_visit', 'compare_or_save', 'contact_click', 'booking_started',
-  ];
-  if (consentRequired.includes(event) && !hasBehaviorTrackingConsent()) return null;
+  // Keep campaign parameters separately for a user-submitted lead, but do not
+  // persist anonymous visitor identity/events unless optional behavior consent exists.
+  if (!hasBehaviorTrackingConsent()) return null;
 
   const visitorIdValue = getVisitorId();
   const utm = getUtm();

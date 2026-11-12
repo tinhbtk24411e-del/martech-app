@@ -1,6 +1,12 @@
 # Cấu hình n8n
 
-Website hiện chỉ nhận yêu cầu đặt tour. Backend lưu booking vào Supabase trước khi gọi workflow n8n.
+Backend lưu yêu cầu tư vấn, booking và itinerary lead vào Supabase trước khi gọi workflow n8n.
+
+## Consultation lead webhook
+
+1. Bật workflow `1_lead_capture.json` sau khi cấu hình credentials; API gọi `POST /webhook/vietjourney-lead` từ server qua `N8N_LEAD_WEBHOOK_URL`.
+2. Yêu cầu tư vấn là WARM lead, lưu ở Supabase với `lead_status=NEW`; workflow gửi thông báo Sales và email xác nhận đã nhận yêu cầu. API chỉ ghi notification SENT sau response `{ notification_sent: true, lead_id }` khớp.
+3. Dùng cùng Header Auth credential `X-Automation-Secret`; không gọi webhook từ trình duyệt. Đổi node Sales notification khỏi địa chỉ cá nhân sang inbox nội bộ của nhóm.
 
 ## Booking webhook
 
@@ -28,6 +34,6 @@ Website hiện chỉ nhận yêu cầu đặt tour. Backend lưu booking vào Su
 
 Repository đã có hai Vercel Cron hằng ngày: `GET /api/nurture` lúc 02:00 UTC để chạy chuỗi COLD/WARM đúng ngày, và `GET /api/retry-notifications` lúc 03:00 UTC để retry thông báo booking `PENDING`/`FAILED` cùng email xác nhận sau booking. Vercel tự gửi `Authorization: Bearer CRON_SECRET` khi biến môi trường này được đặt. Đây không phải workflow nhắc Sales theo SLA. Nếu cần nhắc booking chưa xử lý, tạo một **Schedule Trigger workflow riêng** lọc lead `NEW` quá ngưỡng SLA, gửi nhắc Sales và lưu dấu lần nhắc/trạng thái xử lý để tránh nhắc lặp. Chốt ngưỡng SLA và kênh thông báo trước khi bật workflow này.
 
-Chi tiết payload, mapping và kiểm thử: [n8n-workflow.md](./n8n-workflow.md). Dùng n8n credentials cho Google Sheets và email; không đặt credential trong Code node hoặc payload.
+Chi tiết payload, mapping và kiểm thử: [n8n-workflow.md](./n8n-workflow.md). Dùng n8n credentials cho email; không đặt credential trong Code node hoặc payload. Lead và booking chỉ lưu tại Supabase; không thêm Google Sheets node vào workflow capture.
 
 Chạy lại `docs/supabase-schema.sql` để thêm các cột trạng thái retry email xác nhận booking. Cần cấu hình `SALES_UPDATE_SECRET` và `CRON_SECRET` ở môi trường server. Dashboard có khu vực **Xác nhận booking**: Sales nhập `SALES_UPDATE_SECRET` để mở danh sách tối đa 100 booking gần nhất. Sau đó bấm lần lượt **Đánh dấu đã liên hệ**, **Đánh dấu đã báo giá**, **Xác nhận booking & gửi email**. Backend chỉ gửi email khách ở lần chuyển đầu tiên sang `BOOKED`; nếu gửi lỗi, `booking_confirmation_status` được retry bởi cron. Mã Sales chỉ giữ trong bộ nhớ trang, không lưu vào browser storage.

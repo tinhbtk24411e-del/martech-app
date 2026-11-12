@@ -6,12 +6,12 @@ import { supabase } from '../lib/_supabase.js';
 const WINDOW_DAYS = 180;
 const PAGE_SIZE = 1000;
 
-async function loadRows(resource, dateColumn, since, select, order) {
+async function loadRows(resource, dateColumn, since, select, order, extraFilters = '') {
   const rows = [];
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const response = await supabase(
       `${resource}?${dateColumn}=gte.${encodeURIComponent(since)}` +
-        `&select=${select}&order=${order}`,
+        `&select=${select}&order=${order}${extraFilters}`,
       {
         headers: {
           Range: `${offset}-${offset + PAGE_SIZE - 1}`,
@@ -51,6 +51,7 @@ export default async function handler(req, res) {
         since,
         'lead_id,created_at,lead_status,lead_level,utm_source,selected_tour_id,lead_source',
         'created_at.asc,lead_id.asc',
+        '&request_id=not.like.DEMO-*',
       ),
       supabase('rpc/get_website_visitor_kpis', {
         method: 'POST',

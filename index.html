@@ -113,8 +113,8 @@
       <section id="contact" class="lead-section">
         <div>
           <p class="eyebrow light">TỤI MÌNH LUÔN SẴN SÀNG</p>
-          <h2 id="contactTitle">Gửi thông tin<br>đặt tour của bạn.</h2>
-          <p id="contactDescription">Chọn tour và gửi thông tin chuyến đi. Sales sẽ xác nhận ngày đi, giá cuối cùng và tình trạng chỗ.</p>
+          <h2 id="contactTitle">Trao đổi về<br>chuyến đi của bạn.</h2>
+          <p id="contactDescription">Chọn tour rồi gửi yêu cầu tư vấn hoặc đặt tour. Sales sẽ liên hệ để xác nhận nhu cầu.</p>
           <div class="contact-reassurance"><span>♡</span><p id="contactReassurance"><strong>Yêu cầu chưa giữ chỗ.</strong><br>Email xác nhận đặt tour sẽ được gửi sau khi Sales xác nhận.</p></div>
         </div>
         <form id="leadForm" class="lead-form" method="post" action="/api/leads">
@@ -124,7 +124,7 @@
           <div class="form-grid">
             <label>Gọi bạn là gì nhỉ?<input name="name" required maxlength="120" placeholder="Tên của bạn"></label>
             <label>Số điện thoại (không bắt buộc)<input name="phone" type="tel" maxlength="40" autocomplete="tel" placeholder="Số điện thoại để tụi mình liên hệ"></label>
-            <p id="contactHint" class="contact-hint">Email bắt buộc để nhận xác nhận sau khi Sales chốt booking; số điện thoại giúp Sales liên hệ.</p>
+            <p id="contactHint" class="contact-hint">Email bắt buộc để nhận phản hồi; số điện thoại giúp Sales liên hệ.</p>
           </div>
           <details id="tripDetails" class="lead-extra" open>
             <summary>Thông tin chuyến đi</summary>
@@ -142,7 +142,11 @@
           <label class="consent"><input name="consent_to_contact" type="checkbox" value="true" required> <span id="contactConsentText">Tôi đồng ý để VietJourney xử lý yêu cầu đặt tour và liên hệ xác nhận.</span></label>
           <label id="trackingConsent" class="consent"><input name="behavior_tracking" type="checkbox" value="true"> Cho phép lưu tín hiệu xem tour, quay lại và bắt đầu booking trên trình duyệt để cá nhân hóa gợi ý (tùy chọn).</label>
           <p class="field-hint">Website dùng mã ẩn danh lưu trên trình duyệt, hết hạn sau 7 ngày không truy cập, để ghi nhận lượt truy cập, nguồn UTM và việc sử dụng AI; không lưu IP hoặc nội dung chat. Tín hiệu xem tour, tương tác và quay lại chỉ ghi nhận khi bạn chọn ô trên.</p>
-          <button id="leadSubmit" class="button coral" type="submit">Gửi yêu cầu đặt tour</button>
+          <div class="lead-submit-actions">
+            <button id="leadSubmit" class="button coral" type="submit" name="request_type" value="booking">Gửi yêu cầu đặt tour</button>
+            <button id="consultSubmit" class="button teal" type="submit" name="request_type" value="consultation">Yêu cầu tư vấn</button>
+          </div>
+          <p class="field-hint">Yêu cầu tư vấn chỉ cần chọn tour và để lại thông tin liên hệ; ngày đi và số khách chưa bắt buộc. Yêu cầu này chưa phải booking.</p>
           <p class="form-message" aria-live="polite"></p>
         </form>
       </section>

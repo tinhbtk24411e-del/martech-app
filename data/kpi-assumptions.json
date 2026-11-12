@@ -2,7 +2,7 @@
   "dataset": "SIMULATED — phục vụ học thuật, không phải dữ liệu CRM thực",
   "currency": "VND",
   "source_notes": {
-    "avg_booking_value": "Trung bình price_per_person của 10 tour active trong data/tours.json = 5.835.000 VND",
+    "avg_booking_value": "Giá trung bình mỗi người của 10 tour active trong data/tours.json = 5.835.000 VND; mô hình tạm giả định 1 khách mỗi booking vì chưa có dữ liệu party size. Đây không phải booking value thực tế; revenue/CAC/LTV mô phỏng dựa trên giả định này và có thể thấp hơn với booking nhóm.",
     "purchases_per_customer": "Giả định khách đặt trung bình 1,25 tour trong vòng đời (không có dữ liệu thực)",
     "marketing_spend_per_month": "Giả định ngân sách cố định; không tính chi phí nhân sự và giá vốn tour"
   },

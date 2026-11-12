@@ -2,16 +2,15 @@
 
 | File | Webhook | Trạng thái | Vai trò |
 |---|---|---|---|
-| `2_booking_confirmation.json` | `POST /webhook/vietjourney-booking` | Đã sửa, chưa chạy thật | Đơn đặt tour mới: lưu Google Sheets, thông báo Sales (`sales_email_sent`). Khi Sales xác nhận (`booking_event = sales_confirmed`): gửi email cho khách (`customer_email_sent`). Chống gửi trùng bằng Data Table. |
+| `2_booking_confirmation.json` | `POST /webhook/vietjourney-booking` | Chưa xác minh trên production | Đơn đặt tour mới: thông báo Sales (`sales_email_sent`). Khi Sales xác nhận (`booking_event = sales_confirmed`): gửi email cho khách (`customer_email_sent`). Chống gửi email trùng bằng Data Table. Supabase là nguồn dữ liệu lead/CRM duy nhất; workflow không ghi lead vào Google Sheets. |
 | `3_nurture_email.json` | `POST /webhook/vietjourney-nurture` | Mới, chưa chạy thật | Gửi một email nuôi dưỡng theo `action`. Trả `email_sent`. Không gửi nếu thiếu email hoặc thiếu link hủy nhận. |
-| `1_lead_capture.json` | `POST /webhook/vietjourney-lead` | Dormant | Chỉ dùng cho lead không phải đặt tour. Website hiện chỉ gửi đặt tour nên workflow này chưa có đầu vào. |
+| `1_lead_capture.json` | `POST /webhook/vietjourney-lead` | Dormant trong export; cần bật trên instance sau khi map credential | Consultation form gửi WARM lead đã được backend lưu Supabase; workflow gửi Sales notification và xác nhận đã nhận yêu cầu cho khách. |
 
 ## Trước khi bật
 
 1. **Tắt workflow cũ trùng path.** Nếu còn workflow cũ dùng `vietjourney-booking` hoặc `vietjourney-lead`, n8n sẽ xung đột.
-2. **Chọn lại credential:** Header Auth (`X-Automation-Secret`), Gmail OAuth2, Google Sheets OAuth2, Data Table.
-3. **Thêm cột vào sheet `Leads`.** Các cột phải có đúng tên, theo thứ tự tùy ý:
-   `lead_id, created_at, name, email, phone, destination, travel_date, budget, party_size, selected_tour_name, interests, lead_priority, lead_score, lead_level, customer_segment, customer_traits, source, utm_source, utm_medium, utm_campaign, note, consent_to_contact, booking_status, booking_event, requested_at, confirmed_at, updated_at, care_priority`.
+2. **Chọn lại credential:** Header Auth (`X-Automation-Secret`), Gmail OAuth2 và Data Table cho workflow booking.
+3. **Không thêm Google Sheets node vào luồng lead/booking.** Supabase giữ lead, UTM, CRM status và booking. Google Sheets chỉ phục vụ KPI/phân tích qua quy trình export hoặc synchronization riêng nếu có cấu hình được duyệt.
 4. **Đổi email Sales.** Node `Send Email - Notify Sales` đang gửi tới địa chỉ cá nhân. Đổi sang email nội bộ của nhóm.
 5. **Kiểm tra Data Table.** Workflow booking dùng Data Table `4LzpONfKZBVArGKg` của instance cũ. Nếu instance mới, tạo bảng có cột `key, status, sent_at` và cập nhật ID.
 
@@ -26,16 +25,18 @@ Nurture (`vietjourney-nurture`): backend gửi `lead_id, step, action, care_prio
 ## Kiểm thử
 
 - Postman: `automation/postman/VietJourney_n8n_Test_Simple.postman_collection.json` gửi lead và booking.
-- Booking thật: gửi một đơn, kiểm tra Sales nhận email và sheet có dòng mới. Sau đó gọi `PATCH /api/lead-status` với `BOOKED`, kiểm tra khách nhận email xác nhận và `booking_confirmation_status = SENT`.
+- Booking thật: gửi một đơn, kiểm tra Supabase lưu lead và Sales nhận email. Sau đó gọi `POST /api/lead-status` với `BOOKED`, kiểm tra khách chỉ nhận email xác nhận sau khi Sales chốt và `booking_confirmation_status = SENT`.
+- Consultation: chọn tour nhưng để trống ngày đi/số khách, đồng ý cho liên hệ, gửi yêu cầu tư vấn. Kiểm tra Supabase có WARM/NEW, Sales và khách nhận đúng email, API chỉ báo SENT sau response xác nhận khớp `lead_id`.
 - Nurture: gọi `GET /api/nurture` với `Authorization: Bearer <CRON_SECRET>` khi có lead COLD đã quá 1 ngày, kiểm tra email đến và `nurture_step` tăng 1.
 
-## Chưa làm
+## Chưa làm / chưa xác minh
 
-- Workflow lead (`1_lead_capture.json`) chưa rẽ theo `care_priority`. Chỉ nên làm khi có luồng thu lead không phải đặt tour.
-- Chưa có bằng chứng chạy thật trên n8n và Gmail của nhóm.
+- Workflow lead (`1_lead_capture.json`) phải được bật và credential/email Sales cập nhật trên instance để xử lý consultation WARM; export `active=false` không chứng minh trạng thái production.
+- Export không có node Google Sheets theo chủ đích kiến trúc; không có đồng bộ Sheets tự động trong workflow này.
+- Chưa có bằng chứng chạy thật trên n8n, Gmail, Google Sheets của nhóm hoặc trạng thái active trên instance production. Trường `active` trong JSON export không chứng minh workflow đang chạy trên instance của nhóm.
 
 ## Cập nhật: hành động `itinerary_delivery`
 
 Workflow `3_nurture_email.json` xử lý thêm hành động `itinerary_delivery`, gửi lịch trình AI Planner ngay khi khách đăng ký (bước 0). Email kèm `plan_summary` và link hủy nhận. Các hành động `tour_suggestions`, `destination_guide`, `trip_checklist`, `intent_check`, `close_file` là bước 1–4 do job `/api/nurture` gọi theo ngày.
 
-Workflow `1_lead_capture.json` không còn cần cho luồng lịch trình. Lịch trình đi thẳng tới webhook nuôi dưỡng.
+Workflow `1_lead_capture.json` xử lý consultation WARM; lịch trình COLD đi thẳng tới webhook nuôi dưỡng.

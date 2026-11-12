@@ -17,6 +17,8 @@ Tour chỉ hiển thị khi `tour_status` là `active`. Catalog hiện có 10 to
 
 Mở [Dashboard KPI](../dashboard.html) để xem funnel visitor/booking thực tế và KPI 6 tháng giả lập. Nút tải CSV tạo file có thể mở bằng Excel; giả định về conversion, CAC và LTV được ghi trực tiếp trên trang và trong file.
 
+`automation/demo_leads_seed.sql` chỉ dành cho Supabase staging để trình diễn dữ liệu CRM giả lập. Không chạy trong production: các hàng này dùng chung bảng `leads` nhưng `/api/kpi` chủ động loại `request_id` có tiền tố `DEMO-` khỏi KPI operational. Chúng không được trộn với kịch bản conversion/CAC/LTV ở `data/kpi-assumptions.json`. Có thể xóa riêng batch demo theo `request_id like 'DEMO-20261108-%'` trong môi trường staging.
+
 ## Deploy Vercel
 
 Đẩy repository lên Git, import vào Vercel, đặt toàn bộ variables trong Project Settings → Environment Variables, rồi deploy. Dùng `APP_ORIGIN` là URL production; API cũng chấp nhận domain của deployment hiện tại do Vercel cung cấp để các preview deployment hoạt động. Chạy `docs/supabase-schema.sql` để cập nhật schema visitor funnel trước khi dùng dashboard KPI.

@@ -4,7 +4,9 @@
 
 `Booking form → /api/leads → Supabase → N8N_BOOKING_WEBHOOK_URL → phản hồi backend`
 
-Website chỉ nhận yêu cầu đặt tour. Backend lưu booking vào Supabase trước khi gọi n8n. Nếu webhook timeout hoặc lỗi, booking vẫn được lưu với `notification_status = PENDING`; cần theo dõi và xử lý lại các booking này. Webhook được gọi đồng bộ với timeout 15 giây nên giữ workflow nhẹ và phản hồi sớm.
+`Consultation form → /api/consultations → Supabase → N8N_LEAD_WEBHOOK_URL → phản hồi backend`
+
+Backend lưu booking/consultation vào Supabase trước khi gọi n8n. Nếu webhook booking timeout hoặc lỗi, booking vẫn được lưu với `notification_status = PENDING`; cron retry chỉ áp dụng cho booking. Consultation không được tự gửi lại khi thiếu xác nhận; kiểm tra execution trước khi thao tác lại để tránh gửi trùng. Webhook được gọi đồng bộ với timeout 15 giây nên giữ workflow nhẹ và phản hồi sớm.
 
 ## 1. Webhook booking và xác thực
 
@@ -34,13 +36,13 @@ API tính các trường này sau khi validate lead và tour. Đây là rule-bas
 
 Không ghi đè các trường scoring này bằng một phép tính khác trong n8n. Nếu cần mô hình AI, lưu kết quả thành trường enrichment riêng, giữ lại score rule-based để đối chiếu.
 
-## 3. Ghi CRM / Google Sheets
+## 3. CRM và reporting
 
-Thêm Google Sheets node dạng Append Row và ánh xạ tối thiểu:
+Lead/CRM/booking chỉ được ghi vào Supabase qua backend. Không thêm Google Sheets node vào workflow lead hoặc booking. Google Sheets dùng cho KPI, phân tích và trực quan hóa; export/synchronization chỉ cấu hình riêng khi cần và phải tránh ghi trùng.
 
-`lead_id`, `created_at` (thời điểm xử lý nếu payload chưa có), `name`, `email`, `phone`, `destination`, `travel_date`, `budget`, `party_size`, `selected_tour_name`, `interests`, `lead_priority`, `lead_score`, `lead_level`, `score_signals`, `customer_segment`, `customer_traits`, `source`, `utm_source`, `utm_medium`, `utm_campaign`, `note`, `consent_to_contact`.
+Dashboard hiện lấy KPI vận hành tổng hợp từ Supabase và hiển thị các kịch bản giả lập tách riêng. Không trộn dữ liệu giả lập vào operational records.
 
-Đặt tên sheet là `Leads` và chỉ cho người được phân quyền truy cập vì sheet có dữ liệu liên hệ cá nhân.
+Consultation WARM lead được ghi vào Supabase bởi `POST /api/consultations`; backend gọi `N8N_LEAD_WEBHOOK_URL` sau khi lưu. Workflow `1_lead_capture.json` phải được kích hoạt và credential remapped trong n8n. Lead vẫn ở `crm_status=NEW` tới khi Sales thực sự liên hệ.
 
 ## 4. Thông báo Sales và follow-up
 
@@ -48,7 +50,7 @@ Thêm Google Sheets node dạng Append Row và ánh xạ tối thiểu:
 - Workflow Booking Confirmation gửi email nội bộ cho Sales khi nhận yêu cầu mới. Chỉ sau khi Sales chuyển lead sang `BOOKED`, backend gọi lại webhook với `booking_event: "sales_confirmed"` để gửi email xác nhận booking cho khách. `booking_price_per_person` là giá tham khảo từ catalog; nội dung email khách không được khẳng định các điều kiện Sales chưa xác nhận.
 - Vì webhook có thể được retry, dùng khóa `lead_id:customer` và `lead_id:sales` trong kho bền vững; lưu trạng thái từng kênh trước/sau khi gửi để retry không gửi lại kênh đã thành công. Xem [N8N_SETUP.md](./N8N_SETUP.md) về xử lý trạng thái `PROCESSING`, chạy tuần tự và giới hạn exactly-once.
 - Repository có Vercel Cron retry thông báo `PENDING`/`FAILED`, không có workflow nhắc Sales theo SLA. Nếu cần, tạo Schedule workflow riêng để kiểm tra lead chưa xử lý; chốt ngưỡng SLA và lưu trạng thái/lần nhắc để tránh gửi nhắc lặp.
-- Dùng credential n8n cho Gmail, Google Sheets và kênh thông báo; không đặt credential trong Code node hoặc payload.
+- Dùng credential n8n cho Gmail và Data Table; không đặt credential trong Code node hoặc payload.
 
 Payload booking có các trường trọng tâm sau (ngoài thông tin lead/UTM hiện tại):
 

@@ -1,5 +1,5 @@
 import { careTier, scoreLead, understandCustomer } from '../lib/_scoring.js';
-import { clean, method, number, send } from '../lib/_shared.js';
+import { clean, method, number, send, utmFields } from '../lib/_shared.js';
 import { supabase, supabaseErrorCode } from '../lib/_supabase.js';
 import { deliverNurture } from '../lib/_nurture.js';
 import { updateNotificationStatus } from '../lib/_notify.js';
@@ -23,7 +23,11 @@ export default async function handler(req, res) {
   const partySize = b.party_size === undefined || b.party_size === '' ? 1 : number(b.party_size, 1, 30);
   const planSummary = clean(b.plan_summary, 2000);
   const consent = b.consent_to_contact === true;
-  const utmSource = clean(b.utm_source, 60) || 'planner';
+  // Keep acquisition attribution separate from the AI Planner capture channel.
+  const utm = utmFields(b);
+  const sourceValue = (utm.utm_source || '').toLowerCase();
+  const knownSources = new Set(['facebook', 'tiktok', 'instagram', 'google', 'direct']);
+  utm.utm_source = knownSources.has(sourceValue) ? sourceValue : sourceValue ? 'other' : 'direct';
 
   if (!name || !EMAIL.test(email) || !destination || !days || !consent || partySize === null || budget === undefined) {
     return send(res, 400, { error: 'Vui lòng nhập họ tên, email hợp lệ, điểm đến, số ngày, và đồng ý nhận lịch trình.' });
@@ -65,7 +69,11 @@ export default async function handler(req, res) {
       lead_status: 'NEW',
       lead_source: 'itinerary_capture',
       source: 'itinerary_capture',
-      utm_source: utmSource,
+      utm_source: utm.utm_source || 'direct',
+      utm_medium: utm.utm_medium || null,
+      utm_campaign: utm.utm_campaign || null,
+      utm_content: utm.utm_content || null,
+      utm_term: utm.utm_term || null,
       lead_score: scored.score,
       lead_level: scored.level,
       care_priority: care,
@@ -91,7 +99,7 @@ export default async function handler(req, res) {
 
     // Send the itinerary now through the nurture webhook (action = itinerary_delivery, step 0).
     const delivered = await deliverNurture(
-      { ...row, lead_id: leadId, plan_summary: planSummary },
+      { ...row, lead_id: leadId, created_at: lead?.created_at || null, plan_summary: planSummary },
       { step: 0, action: 'itinerary_delivery' },
     );
     let notificationStatus = 'PENDING';
